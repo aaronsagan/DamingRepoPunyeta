@@ -17,6 +17,7 @@ import {
 import { ArrowLeft, Upload, X, Loader2, CheckCircle, Heart, TrendingUp, Target } from "lucide-react";
 import { toast } from "sonner";
 import { buildApiUrl, buildStorageUrl, getAuthToken } from "@/lib/api";
+import ReceiptUploader from "@/components/ReceiptUploader";
 
 interface Campaign {
   id: number;
@@ -60,6 +61,8 @@ export default function DonateToCampaign() {
 
   const [proofImage, setProofImage] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<any>(null);
+  const [useOCR, setUseOCR] = useState(true);
 
   useEffect(() => {
     fetchCampaignDetails();
@@ -149,6 +152,15 @@ export default function DonateToCampaign() {
       if (formData.message) submitData.append("message", formData.message);
       submitData.append("is_anonymous", formData.is_anonymous ? "1" : "0");
       submitData.append("proof_image", proofImage);
+      
+      // Add OCR fields if available
+      if (ocrResult) {
+        submitData.append("ocr_text", ocrResult.text || "");
+        submitData.append("ocr_ref_number", ocrResult.refNumber || "");
+        submitData.append("ocr_amount", ocrResult.amount || "");
+        submitData.append("ocr_date", ocrResult.date || "");
+        submitData.append("ocr_confidence", String(ocrResult.confidence || 0));
+      }
 
       const response = await fetch(buildApiUrl(`/campaigns/${campaignId}/donate`), {
         method: "POST",
@@ -454,57 +466,122 @@ export default function DonateToCampaign() {
 
                   {/* Proof Upload Section */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <div className="h-5 w-1 bg-primary rounded-full" />
-                      Upload Proof of Payment
-                    </h3>
-
-                    {/* Proof Image Upload */}
-                    <div className="space-y-2">
-                      {proofPreview ? (
-                        <div className="relative">
-                          <img
-                            src={proofPreview}
-                            alt="Proof preview"
-                            className="w-full h-64 object-cover rounded-xl border-2 border-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProofImage(null);
-                              setProofPreview(null);
-                            }}
-                            className="absolute top-3 right-3 p-2 bg-destructive text-white rounded-full hover:bg-destructive/90 shadow-lg"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs">
-                            ✓ Image uploaded
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
-                          <div className="flex flex-col items-center justify-center p-6 text-center">
-                            <div className="p-3 rounded-full bg-primary/10 mb-3">
-                              <Upload className="h-8 w-8 text-primary" />
-                            </div>
-                            <p className="text-sm font-medium mb-1">
-                              Click to upload receipt or screenshot <span className="text-destructive">*</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Supported formats: JPG, PNG (Max 2MB)
-                            </p>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                            required
-                          />
-                        </label>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <div className="h-5 w-1 bg-primary rounded-full" />
+                        Upload Proof of Payment
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="use_ocr"
+                          checked={useOCR}
+                          onCheckedChange={setUseOCR}
+                        />
+                        <Label htmlFor="use_ocr" className="text-xs cursor-pointer">
+                          Enable OCR Auto-Extract
+                        </Label>
+                      </div>
                     </div>
+
+                    {useOCR ? (
+                      <ReceiptUploader
+                        onFileChange={(file) => {
+                          setProofImage(file);
+                          if (file) {
+                            setProofPreview(URL.createObjectURL(file));
+                          } else {
+                            setProofPreview(null);
+                          }
+                        }}
+                        onOCRExtract={(result) => {
+                          setOcrResult(result);
+                          // Auto-populate form fields if OCR extracted them
+                          if (result.refNumber && !formData.reference_number) {
+                            setFormData({ ...formData, reference_number: result.refNumber });
+                          }
+                          if (result.amount && !formData.amount) {
+                            setFormData({ ...formData, amount: result.amount });
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        {proofPreview ? (
+                          <div className="relative">
+                            <img
+                              src={proofPreview}
+                              alt="Proof preview"
+                              className="w-full h-64 object-cover rounded-xl border-2 border-primary/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProofImage(null);
+                                setProofPreview(null);
+                              }}
+                              className="absolute top-3 right-3 p-2 bg-destructive text-white rounded-full hover:bg-destructive/90 shadow-lg"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs">
+                              ✓ Image uploaded
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
+                            <div className="flex flex-col items-center justify-center p-6 text-center">
+                              <div className="p-3 rounded-full bg-primary/10 mb-3">
+                                <Upload className="h-8 w-8 text-primary" />
+                              </div>
+                              <p className="text-sm font-medium mb-1">
+                                Click to upload receipt or screenshot <span className="text-destructive">*</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Supported formats: JPG, PNG (Max 2MB)
+                              </p>
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="hidden"
+                              required
+                            />
+                          </label>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* OCR Results Display */}
+                    {ocrResult && useOCR && (
+                      <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
+                        <p className="text-xs font-medium mb-2">✨ OCR Extracted Data:</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">Confidence:</span>
+                            <span className="ml-2 font-medium">{ocrResult.confidence}%</span>
+                          </div>
+                          {ocrResult.refNumber && (
+                            <div>
+                              <span className="text-muted-foreground">Ref:</span>
+                              <span className="ml-2 font-medium">{ocrResult.refNumber}</span>
+                            </div>
+                          )}
+                          {ocrResult.amount && (
+                            <div>
+                              <span className="text-muted-foreground">Amount:</span>
+                              <span className="ml-2 font-medium">₱{ocrResult.amount}</span>
+                            </div>
+                          )}
+                          {ocrResult.date && (
+                            <div>
+                              <span className="text-muted-foreground">Date:</span>
+                              <span className="ml-2 font-medium">{ocrResult.date}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Additional Details Section */}
