@@ -25,6 +25,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   const [parsedRef, setParsedRef] = useState<string>('');
   const [parsedAmount, setParsedAmount] = useState<string>('');
   const [parsedDate, setParsedDate] = useState<string>('');
+  const [receiptType, setReceiptType] = useState<string>('unknown');
   const [workerReady, setWorkerReady] = useState<boolean>(false);
   const workerRef = useRef<any>(null);
 
@@ -59,6 +60,35 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     };
   }, []);
 
+  // Image preprocessing for better OCR accuracy
+  async function preprocessImage(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(URL.createObjectURL(file));
+          return;
+        }
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        // Convert to grayscale and apply threshold for better text recognition
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          const avg = (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
+          const value = avg > 128 ? 255 : 0;
+          imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = value;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+    });
+  }
+
   async function runOCR(imageFile: File) {
     setParsing(true);
     setProgress(0);
@@ -67,6 +97,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     setParsedRef('');
     setParsedAmount('');
     setParsedDate('');
+    setReceiptType('unknown');
 
     try {
       const worker = workerRef.current;
@@ -79,19 +110,19 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       }
 
       // Manual progress tracking
-      setProgress(20);
+      setProgress(10);
       
-      // Convert file to blob/url
-      const imgURL = URL.createObjectURL(imageFile);
+      // Preprocess image for better accuracy
+      const imgURL = await preprocessImage(imageFile);
       
-      setProgress(40);
+      setProgress(30);
       
       // Worker is pre-loaded in newer Tesseract.js, just recognize directly
       const { data } = await worker.recognize(imgURL, 'eng', { 
-        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK 
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO 
       });
       
-      setProgress(90);
+      setProgress(80);
       // full detected text
       const text = data?.text || '';
       setOcrText(text);
@@ -133,53 +164,95 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     if (f) runOCR(f);
   }
 
-  // Simple parsing heuristics — tweak according to your receipts
+  // Detect receipt type based on text content
+  function detectReceiptType(text: string): 'gcash' | 'maya' | 'bpi' | 'bdo' | 'unknown' {
+    const t = text.toLowerCase();
+    if (t.includes('gcash')) return 'gcash';
+    if (t.includes('paymaya') || t.includes('maya')) return 'maya';
+    if (t.includes('bpi')) return 'bpi';
+    if (t.includes('bdo')) return 'bdo';
+    return 'unknown';
+  }
+
+  // GCash-specific parser
+  function parseGcashReceipt(text: string) {
+    const refMatch = text.match(/Ref(?:\.|erence)?\s*(?:No\.|Number)?[:\s]*([0-9]{6,})/i);
+    const amountMatch = text.match(/(?:Total\s*)?Amount\s*(?:Sent|Paid)?\s*(?:₱|PHP)?\s*([0-9.,]+)/i);
+    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})|(\d{4}-\d{2}-\d{2})/i);
+
+    return {
+      refNumber: refMatch?.[1] || '',
+      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
+      date: dateMatch?.[0] || '',
+    };
+  }
+
+  // Maya/PayMaya-specific parser
+  function parseMayaReceipt(text: string) {
+    const refMatch = text.match(/Reference\s*(?:No\.|Number)?[:\s]*([0-9A-Za-z\-]+)/i);
+    const amountMatch = text.match(/Amount\s*(?:Paid|Sent)?[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+
+    return {
+      refNumber: refMatch?.[1] || '',
+      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
+      date: dateMatch?.[0] || '',
+    };
+  }
+
+  // BPI-specific parser
+  function parseBpiReceipt(text: string) {
+    const refMatch = text.match(/Transaction\s*(?:ID|Code|No\.)[:\s]*([0-9A-Za-z\-]+)/i);
+    const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+    const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+
+    return {
+      refNumber: refMatch?.[1] || '',
+      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
+      date: dateMatch?.[0] || '',
+    };
+  }
+
+  // BDO-specific parser
+  function parseBdoReceipt(text: string) {
+    const refMatch = text.match(/Transaction\s*(?:Ref|No\.|Number)[:\s]*([0-9A-Za-z\-]+)/i);
+    const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})|(\d{4}-\d{2}-\d{2})/i);
+
+    return {
+      refNumber: refMatch?.[1] || '',
+      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
+      date: dateMatch?.[0] || '',
+    };
+  }
+
+  // Generic fallback parser
+  function parseGenericReceipt(text: string) {
+    const refMatch = text.match(/ref(?:erence)?[:\s]*([A-Za-z0-9\-]+)/i) || 
+                     text.match(/transaction[:\s]*([A-Za-z0-9\-]+)/i) ||
+                     text.match(/\b([A-Z0-9]{6,})\b/);
+    const amountMatch = text.match(/(?:₱|PHP)?\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i);
+    const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}\/\d{2}\/\d{4})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})/i);
+
+    return {
+      refNumber: refMatch?.[1] || '',
+      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
+      date: dateMatch?.[0] || '',
+    };
+  }
+
+  // Main parser with template selection
   function parseReceiptText(text: string) {
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const joined = lines.join(' | ');
-
-    // Reference number regexes (GCash, bank ref patterns)
-    const refRegexes = [
-      /ref(?:erence)?[:\s]*([A-Za-z0-9\-]+)/i,
-      /transaction id[:\s]*([A-Za-z0-9\-]+)/i,
-      /txn(?:\s|#)[:\s]*([A-Za-z0-9\-]+)/i,
-      /\b([A-Z0-9]{6,})\b/ // fallback generic uppercase/alphanumeric
-    ];
-
-    let refNumber: string | undefined;
-    for (const r of refRegexes) {
-      const m = joined.match(r);
-      if (m && m[1]) {
-        refNumber = m[1];
-        break;
-      }
+    const type = detectReceiptType(text);
+    setReceiptType(type);
+    
+    switch (type) {
+      case 'gcash': return parseGcashReceipt(text);
+      case 'maya': return parseMayaReceipt(text);
+      case 'bpi': return parseBpiReceipt(text);
+      case 'bdo': return parseBdoReceipt(text);
+      default: return parseGenericReceipt(text);
     }
-
-    // Amount regex (peso symbol optional)
-    const amountRegex = /(?:₱|\bPHP\b|PHP\s|Peso\s|P\s)?\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i;
-    let amount: string | undefined;
-    const amountMatch = joined.match(amountRegex);
-    if (amountMatch && amountMatch[1]) {
-      amount = amountMatch[1].replace(/,/g, '');
-    }
-
-    // Date regex (common formats)
-    const dateRegexes = [
-      /(\d{4}-\d{2}-\d{2})/, // 2024-01-31
-      /(\d{2}\/\d{2}\/\d{4})/, // 31/01/2024
-      /(\d{2}\.\d{2}\.\d{4})/,
-      /([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})/ // January 2, 2024
-    ];
-    let date: string | undefined;
-    for (const r of dateRegexes) {
-      const m = joined.match(r);
-      if (m && m[1]) {
-        date = m[1];
-        break;
-      }
-    }
-
-    return { refNumber, amount, date };
   }
 
   return (
@@ -270,6 +343,16 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       {/* Confidence & Raw Text */}
       {confidence !== null && (
         <div className="space-y-2 pt-2 border-t border-border">
+          {/* Receipt Type Badge */}
+          {receiptType !== 'unknown' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Detected:</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary uppercase">
+                {receiptType}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">OCR Confidence:</p>
             <p className={`text-xs font-bold ${
@@ -280,6 +363,25 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
               {confidence}%
             </p>
           </div>
+
+          {/* Confidence Warnings */}
+          {confidence < 70 && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+              <span className="text-yellow-600 dark:text-yellow-400 text-xs">⚠️</span>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                OCR confidence is low ({confidence}%). Please verify extracted values before submitting.
+              </p>
+            </div>
+          )}
+
+          {(!parsedAmount || parsedAmount === '') && confidence !== null && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
+              <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                Amount not detected. Please enter it manually.
+              </p>
+            </div>
+          )}
           
           {/* Collapsible Raw Text */}
           <details className="group">
