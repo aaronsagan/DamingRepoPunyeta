@@ -26,6 +26,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   const [parsedAmount, setParsedAmount] = useState<string>('');
   const [parsedDate, setParsedDate] = useState<string>('');
   const [receiptType, setReceiptType] = useState<string>('unknown');
+  const [fieldsLocked, setFieldsLocked] = useState<boolean>(false);
   const [workerReady, setWorkerReady] = useState<boolean>(false);
   const workerRef = useRef<any>(null);
 
@@ -98,6 +99,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     setParsedAmount('');
     setParsedDate('');
     setReceiptType('unknown');
+    setFieldsLocked(false);
 
     try {
       const worker = workerRef.current;
@@ -132,8 +134,16 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       const avgConf = confidences.length ? Math.round((confidences.reduce((a: number,b:number)=>a+b,0)/confidences.length)) : Math.round((data?.confidence || 0));
       setConfidence(avgConf);
 
-      // parse common fields
+      // parse common fields with template detection
       const parsed = parseReceiptText(text);
+      
+      // Lock fields if confidence is high (anti-fake protection)
+      const shouldLock = avgConf >= 70 && (parsed.refNumber || parsed.amount);
+      
+      if (shouldLock) {
+        setFieldsLocked(true);
+      }
+      
       setParsedRef(parsed.refNumber || '');
       setParsedAmount(parsed.amount || '');
       setParsedDate(parsed.date || '');
@@ -164,112 +174,121 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     if (f) runOCR(f);
   }
 
-  // Detect receipt type based on text content
-  function detectReceiptType(text: string): 'gcash' | 'maya' | 'bpi' | 'bdo' | 'unknown' {
-    const t = text.toLowerCase();
-    if (t.includes('gcash')) return 'gcash';
-    if (t.includes('paymaya') || t.includes('maya')) return 'maya';
-    if (t.includes('bpi')) return 'bpi';
-    if (t.includes('bdo')) return 'bdo';
-    return 'unknown';
-  }
+  // 🧠 UNIFIED SMART PARSER with Anti-Fake Detection
+  function parseReceiptText(rawText: string) {
+    // 1️⃣ Normalize text - remove extra spaces and OCR artifacts
+    let text = rawText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\x20-\x7E₱]/g, '') // remove invisible OCR artifacts
+      .trim();
 
-  // GCash-specific parser (improved)
-  function parseGcashReceipt(text: string) {
-    // Normalize text: remove multiple spaces, unify case
-    const cleanText = text.replace(/\s+/g, ' ').trim();
-    const lower = cleanText.toLowerCase();
+    const lower = text.toLowerCase();
 
-    // 🔍 Extract Reference Number (handles spaces in numbers)
-    // Example: "Ref No. 0033 076 950354"
-    const refMatch = cleanText.match(/Ref(?:\.|erence)?(?:\s*No\.?)?\s*[:\-]?\s*([0-9 ]{6,})/i);
-    let refNumber = refMatch?.[1]?.replace(/\s+/g, '') || '';
+    // --- TEMPLATE DETECTION ---
+    let template = 'generic';
+    if (lower.includes('gcash') || lower.includes('sent via gcash')) {
+      template = 'gcash';
+      setReceiptType('gcash');
+    } else if (lower.includes('bpi')) {
+      template = 'bpi';
+      setReceiptType('bpi');
+    } else if (lower.includes('maya') || lower.includes('paymaya')) {
+      template = 'maya';
+      setReceiptType('maya');
+    } else if (lower.includes('bdo')) {
+      template = 'bdo';
+      setReceiptType('bdo');
+    } else if (lower.includes('paypal')) {
+      template = 'paypal';
+      setReceiptType('paypal');
+    } else {
+      setReceiptType('unknown');
+    }
 
-    // 🔍 Extract Amount
-    // Force it to only look after "Amount", "Total Amount Sent", or "PHP/₱"
-    // Prevents +63 or phone numbers from matching
-    const amountMatch = cleanText.match(/(?:Total\s*Amount\s*Sent|Amount)\s*(?:[:\-]?\s*)?(?:₱|PHP|P|F)?\s*([0-9]{1,6}(?:\.[0-9]{1,2})?)/i);
-    let amount = amountMatch?.[1] || '';
+    let refNumber = '';
+    let amount = '';
+    let date = '';
 
-    // 🧠 Extra Fix: if no amount found, try fallback
+    // --- TEMPLATE-SPECIFIC LOGIC ---
+    if (template === 'gcash') {
+      // Extract reference number (handles spaces)
+      const refMatch = text.match(/Ref(?:\.|erence)?(?:\s*No\.?)?\s*[:\-]?\s*([0-9 ]{6,})/i);
+      if (refMatch) refNumber = refMatch[1].replace(/\s+/g, '').trim();
+
+      // Prioritize "Total Amount Sent" or "Amount" — exclude +63 patterns
+      const amountMatch = text.match(/(?:Total\s*Amount\s*Sent|Amount)\s*(?:[:\-]?\s*)?(?:₱|PHP|P|F)?\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
+      if (amountMatch) amount = amountMatch[1].trim();
+
+      // Optional backup if the OCR splits peso sign or loses the label
+      if (!amount) {
+        const fallback = text.match(/₱\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
+        if (fallback) amount = fallback[1];
+      }
+
+      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+      if (dateMatch) date = dateMatch[0];
+    }
+    else if (template === 'bpi') {
+      const refMatch = text.match(/Transaction\s*(?:ID|Code|No\.)[:\s]*([0-9A-Za-z\-]+)/i);
+      if (refMatch) refNumber = refMatch[1].trim();
+
+      const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+      if (amountMatch) amount = amountMatch[1].replace(/,/g, '').trim();
+
+      const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+      if (dateMatch) date = dateMatch[0];
+    }
+    else if (template === 'maya') {
+      const refMatch = text.match(/Reference\s*(?:No\.|Number)?[:\s]*([0-9A-Za-z\-]+)/i);
+      if (refMatch) refNumber = refMatch[1].trim();
+
+      const amountMatch = text.match(/Amount\s*(?:Paid|Sent)?[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+      if (amountMatch) amount = amountMatch[1].replace(/,/g, '').trim();
+
+      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+      if (dateMatch) date = dateMatch[0];
+    }
+    else if (template === 'bdo') {
+      const refMatch = text.match(/Transaction\s*(?:Ref|No\.|Number)[:\s]*([0-9A-Za-z\-]+)/i);
+      if (refMatch) refNumber = refMatch[1].trim();
+
+      const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
+      if (amountMatch) amount = amountMatch[1].replace(/,/g, '').trim();
+
+      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})|(\d{4}-\d{2}-\d{2})/i);
+      if (dateMatch) date = dateMatch[0];
+    }
+
+    // --- FALLBACK PATTERNS (if template didn't match) ---
+    if (!refNumber) {
+      const refFallback = text.match(/\b([0-9]{8,})\b/);
+      if (refFallback) refNumber = refFallback[1];
+    }
+
     if (!amount) {
-      const backupMatch = cleanText.match(/₱\s*([0-9]{1,6}(?:\.[0-9]{1,2})?)/);
-      if (backupMatch) amount = backupMatch[1];
+      const amtFallback = text.match(/₱?\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
+      if (amtFallback) amount = amtFallback[1];
     }
 
-    // 🔍 Extract Date
-    const dateMatch = cleanText.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/);
-    const date = dateMatch?.[0] || '';
-
-    return { refNumber, amount, date };
-  }
-
-  // Maya/PayMaya-specific parser
-  function parseMayaReceipt(text: string) {
-    const refMatch = text.match(/Reference\s*(?:No\.|Number)?[:\s]*([0-9A-Za-z\-]+)/i);
-    const amountMatch = text.match(/Amount\s*(?:Paid|Sent)?[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
-    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
-
-    return {
-      refNumber: refMatch?.[1] || '',
-      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
-      date: dateMatch?.[0] || '',
-    };
-  }
-
-  // BPI-specific parser
-  function parseBpiReceipt(text: string) {
-    const refMatch = text.match(/Transaction\s*(?:ID|Code|No\.)[:\s]*([0-9A-Za-z\-]+)/i);
-    const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
-    const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
-
-    return {
-      refNumber: refMatch?.[1] || '',
-      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
-      date: dateMatch?.[0] || '',
-    };
-  }
-
-  // BDO-specific parser
-  function parseBdoReceipt(text: string) {
-    const refMatch = text.match(/Transaction\s*(?:Ref|No\.|Number)[:\s]*([0-9A-Za-z\-]+)/i);
-    const amountMatch = text.match(/Amount[:\s]*(?:₱|PHP)?\s*([0-9.,]+)/i);
-    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})|(\d{4}-\d{2}-\d{2})/i);
-
-    return {
-      refNumber: refMatch?.[1] || '',
-      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
-      date: dateMatch?.[0] || '',
-    };
-  }
-
-  // Generic fallback parser
-  function parseGenericReceipt(text: string) {
-    const refMatch = text.match(/ref(?:erence)?[:\s]*([A-Za-z0-9\-]+)/i) || 
-                     text.match(/transaction[:\s]*([A-Za-z0-9\-]+)/i) ||
-                     text.match(/\b([A-Z0-9]{6,})\b/);
-    const amountMatch = text.match(/(?:₱|PHP)?\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i);
-    const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}\/\d{2}\/\d{4})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})/i);
-
-    return {
-      refNumber: refMatch?.[1] || '',
-      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
-      date: dateMatch?.[0] || '',
-    };
-  }
-
-  // Main parser with template selection
-  function parseReceiptText(text: string) {
-    const type = detectReceiptType(text);
-    setReceiptType(type);
-    
-    switch (type) {
-      case 'gcash': return parseGcashReceipt(text);
-      case 'maya': return parseMayaReceipt(text);
-      case 'bpi': return parseBpiReceipt(text);
-      case 'bdo': return parseBdoReceipt(text);
-      default: return parseGenericReceipt(text);
+    if (!date) {
+      const dateFallback = text.match(/(\d{4}-\d{2}-\d{2})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+      if (dateFallback) date = dateFallback[0];
     }
+
+    // --- 🛡️ ANTI-FAKE VALIDATION ---
+    // Check if amount matches phone number pattern (+63xxx)
+    const phonePattern = /\+?63\d{10}/;
+    const isAmountFromPhone = phonePattern.test(amount);
+    if (isAmountFromPhone) {
+      amount = ''; // Clear fake amount
+    }
+
+    // Clean leading zeros (avoid ₱063)
+    if (amount) {
+      amount = amount.replace(/^0+(?=[1-9])/, '');
+    }
+
+    return { refNumber, amount, date, template };
   }
 
   return (
@@ -324,7 +343,17 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       {/* Editable Extracted Fields */}
       {(parsedRef || parsedAmount || parsedDate) && (
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-primary">📝 Extracted Values (Editable)</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-primary">📝 Extracted Values {fieldsLocked ? '🔒' : '(Editable)'}</p>
+            {fieldsLocked && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+                Locked (High Confidence)
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Reference Number</label>
@@ -332,7 +361,8 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
                 value={parsedRef} 
                 onChange={(e)=>setParsedRef(e.target.value)} 
                 placeholder="Not detected"
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={fieldsLocked}
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             <div className="space-y-1">
@@ -341,7 +371,8 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
                 value={parsedAmount} 
                 onChange={(e)=>setParsedAmount(e.target.value)} 
                 placeholder="Not detected"
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={fieldsLocked}
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             <div className="space-y-1">
@@ -350,10 +381,21 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
                 value={parsedDate} 
                 onChange={(e)=>setParsedDate(e.target.value)} 
                 placeholder="Not detected"
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={fieldsLocked}
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
+          
+          {/* Lock Explanation */}
+          {fieldsLocked && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+              <span className="text-green-600 dark:text-green-400 text-xs">🛡️</span>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                Fields are locked because OCR confidence is high. This prevents accidental changes and ensures data integrity.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -382,11 +424,20 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
           </div>
 
           {/* Confidence Warnings */}
-          {confidence < 70 && (
+          {confidence < 60 && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
+              <span className="text-red-600 dark:text-red-400 text-xs">❌</span>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                <strong>Critical:</strong> OCR confidence is very low ({confidence}%). Please upload a clearer photo or enter values manually.
+              </p>
+            </div>
+          )}
+
+          {confidence >= 60 && confidence < 70 && (
             <div className="flex items-start gap-2 p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
               <span className="text-yellow-600 dark:text-yellow-400 text-xs">⚠️</span>
               <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                OCR confidence is low ({confidence}%). Please verify extracted values before submitting.
+                OCR confidence is moderate ({confidence}%). Please verify extracted values before submitting.
               </p>
             </div>
           )}
@@ -395,7 +446,16 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
             <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
               <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
               <p className="text-xs text-orange-600 dark:text-orange-400">
-                Amount not detected. Please enter it manually.
+                <strong>Amount not detected.</strong> Please enter it manually before submitting.
+              </p>
+            </div>
+          )}
+
+          {(!parsedRef || parsedRef === '') && confidence !== null && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
+              <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                <strong>Reference number not detected.</strong> Please enter it manually before submitting.
               </p>
             </div>
           )}
