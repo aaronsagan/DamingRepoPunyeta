@@ -28,23 +28,34 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   const workerRef = useRef<any>(null);
 
   useEffect(() => {
-    // create worker lazily
-    workerRef.current = Tesseract.createWorker({
-      logger: m => {
-        if (m.status === 'recognizing text' && m.progress) {
-          setProgress(Math.round(m.progress * 100));
+    // Initialize worker asynchronously
+    let mounted = true;
+    
+    (async () => {
+      try {
+        const worker = await Tesseract.createWorker({
+          logger: () => {} // Empty logger to avoid DataCloneError
+        });
+        if (mounted) {
+          workerRef.current = worker;
         }
+      } catch (err) {
+        console.error('Failed to initialize Tesseract worker:', err);
       }
-    });
+    })();
 
     return () => {
+      mounted = false;
       (async () => {
         if (workerRef.current) {
-          await workerRef.current.terminate();
+          try {
+            await workerRef.current.terminate();
+          } catch (err) {
+            console.error('Error terminating worker:', err);
+          }
         }
       })();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runOCR(imageFile: File) {
@@ -58,13 +69,34 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
     try {
       const worker = workerRef.current;
+      
+      // Check if worker is ready
+      if (!worker) {
+        console.error('OCR worker not initialized yet. Please wait a moment and try again.');
+        setParsing(false);
+        return;
+      }
+
+      // Manual progress tracking
+      setProgress(10);
       await worker.load();
+      
+      setProgress(30);
       await worker.loadLanguage('eng');
+      
+      setProgress(50);
       await worker.initialize('eng');
 
       // convert file to blob/url
+      setProgress(60);
       const imgURL = URL.createObjectURL(imageFile);
-      const { data } = await worker.recognize(imgURL, { tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK });
+      
+      setProgress(70);
+      const { data } = await worker.recognize(imgURL, { 
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK 
+      });
+      
+      setProgress(90);
       // full detected text
       const text = data?.text || '';
       setOcrText(text);
