@@ -73,17 +73,73 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
           resolve(URL.createObjectURL(file));
           return;
         }
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
         
-        // Convert to grayscale and apply threshold for better text recognition
+        // Scale up image for better OCR (2x size)
+        canvas.width = img.width * 2;
+        canvas.height = img.height * 2;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Get image data
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-          const avg = (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
-          const value = avg > 128 ? 255 : 0;
-          imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = value;
+        const data = imageData.data;
+        
+        // Step 1: Increase contrast
+        const contrast = 1.5;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = factor * (data[i] - 128) + 128;       // Red
+          data[i + 1] = factor * (data[i + 1] - 128) + 128; // Green
+          data[i + 2] = factor * (data[i + 2] - 128) + 128; // Blue
         }
+        
+        // Step 2: Convert to grayscale
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          data[i] = data[i + 1] = data[i + 2] = gray;
+        }
+        
+        // Step 3: Apply adaptive threshold (Otsu-like)
+        // Calculate histogram
+        const histogram = new Array(256).fill(0);
+        for (let i = 0; i < data.length; i += 4) {
+          histogram[Math.floor(data[i])]++;
+        }
+        
+        // Find optimal threshold
+        let sum = 0;
+        for (let i = 0; i < 256; i++) sum += i * histogram[i];
+        
+        let sumB = 0;
+        let wB = 0;
+        let wF = 0;
+        let mB, mF, max = 0;
+        let threshold = 0;
+        const total = canvas.width * canvas.height;
+        
+        for (let i = 0; i < 256; i++) {
+          wB += histogram[i];
+          if (wB === 0) continue;
+          wF = total - wB;
+          if (wF === 0) break;
+          
+          sumB += i * histogram[i];
+          mB = sumB / wB;
+          mF = (sum - sumB) / wF;
+          
+          const between = wB * wF * (mB - mF) * (mB - mF);
+          if (between > max) {
+            max = between;
+            threshold = i;
+          }
+        }
+        
+        // Apply threshold
+        for (let i = 0; i < data.length; i += 4) {
+          const value = data[i] > threshold ? 255 : 0;
+          data[i] = data[i + 1] = data[i + 2] = value;
+        }
+        
         ctx.putImageData(imageData, 0, 0);
         resolve(canvas.toDataURL('image/png'));
       };
@@ -211,21 +267,38 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
     // --- TEMPLATE-SPECIFIC LOGIC ---
     if (template === 'gcash') {
-      // Extract reference number (handles spaces)
-      const refMatch = text.match(/Ref(?:\.|erence)?(?:\s*No\.?)?\s*[:\-]?\s*([0-9 ]{6,})/i);
-      if (refMatch) refNumber = refMatch[1].replace(/\s+/g, '').trim();
-
-      // Prioritize "Total Amount Sent" or "Amount" — exclude +63 patterns
-      const amountMatch = text.match(/(?:Total\s*Amount\s*Sent|Amount)\s*(?:[:\-]?\s*)?(?:₱|PHP|P|F)?\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
-      if (amountMatch) amount = amountMatch[1].trim();
-
-      // Optional backup if the OCR splits peso sign or loses the label
-      if (!amount) {
-        const fallback = text.match(/₱\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
-        if (fallback) amount = fallback[1];
+      // Extract reference number - VERY specific pattern for GCash
+      // Matches: "Ref No. 0033 076 950354" or "Ref. No. 0033076950354"
+      let refMatch = text.match(/Ref\.?\s*No\.?\s*([0-9 ]{13,20})/i);
+      if (refMatch) {
+        refNumber = refMatch[1].replace(/\s+/g, '').trim();
+      } else {
+        // Fallback: look for long number sequences (13+ digits)
+        const longNumMatch = text.match(/\b([0-9 ]{13,20})\b/);
+        if (longNumMatch) refNumber = longNumMatch[1].replace(/\s+/g, '').trim();
       }
 
-      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
+      // STRICT amount extraction - must have context word BEFORE the number
+      // This prevents phone numbers from being captured
+      const amountPatterns = [
+        /Total\s*Amount\s*Sent\s*[₱PF]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        /Amount\s+([0-9]{1,6}(?:\.[0-9]{2})?)\s*$/mi,  // "Amount 150.00"
+        /Amount\s*[₱PF]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+      ];
+      
+      for (const pattern of amountPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          // Additional validation: must be between 1 and 999999
+          const numericAmount = parseFloat(match[1]);
+          if (numericAmount >= 1 && numericAmount <= 999999) {
+            amount = match[1].trim();
+            break;
+          }
+        }
+      }
+
+      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)|(\d{2}\/\d{2}\/\d{4})/i);
       if (dateMatch) date = dateMatch[0];
     }
     else if (template === 'bpi') {
@@ -283,9 +356,27 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       amount = ''; // Clear fake amount
     }
 
+    // Additional check: if amount is just "63" or "912" (common phone fragments)
+    if (amount === '63' || amount === '912' || amount === '067') {
+      amount = ''; // Clear suspicious amounts
+    }
+
+    // Validate amount is reasonable (1 to 999999)
+    if (amount) {
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount < 1 || numAmount > 999999) {
+        amount = ''; // Clear invalid amounts
+      }
+    }
+
     // Clean leading zeros (avoid ₱063)
     if (amount) {
       amount = amount.replace(/^0+(?=[1-9])/, '');
+    }
+
+    // Validate reference number length (should be reasonable)
+    if (refNumber && refNumber.length < 6) {
+      refNumber = ''; // Too short to be a real ref number
     }
 
     return { refNumber, amount, date, template };
