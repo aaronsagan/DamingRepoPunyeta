@@ -233,9 +233,10 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   // 🧠 UNIFIED SMART PARSER with Anti-Fake Detection
   function parseReceiptText(rawText: string) {
     // 1️⃣ Normalize text - remove extra spaces and OCR artifacts
+    // Keep £ because OCR often reads ₱ as £
     let text = rawText
       .replace(/\s+/g, ' ')
-      .replace(/[^\x20-\x7E₱]/g, '') // remove invisible OCR artifacts
+      .replace(/[^\x20-\x7E₱£]/g, '') // remove invisible OCR artifacts but keep £
       .trim();
 
     const lower = text.toLowerCase();
@@ -291,17 +292,18 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       }
 
       // FLEXIBLE amount extraction with multiple patterns
+      // NOTE: OCR often reads ₱ as £ (pound sign)!
       const amountPatterns = [
-        // Very specific patterns first
-        /Total\s*Amount\s*Sent\s*[₱PFp]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
-        /(?:Total\s+)?Amount\s*[₱PFp]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        // Very specific patterns first (includes £ for misread peso sign)
+        /Total\s*Amount\s*Sent\s*[₱PFp£]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        /(?:Total\s+)?Amount\s*[₱PFp£]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
         
         // Line-based patterns (amount on its own line)
         /^Amount\s+([0-9]{1,6}(?:\.[0-9]{2})?)\s*$/mi,
-        /^([0-9]{1,6}\.[0-9]{2})\s*$/m,  // Just the number with decimals
+        /Amount\s+([0-9]{1,6}\.[0-9]{2})/i,  // "Amount 150.00"
         
-        // Peso sign patterns
-        /[₱PFp]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        // Peso/Pound sign patterns (OCR confusion)
+        /[₱PFp£]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
         
         // Last resort: any number with decimal that looks like money
         /\b([1-9][0-9]{0,5}\.[0-9]{2})\b/,
