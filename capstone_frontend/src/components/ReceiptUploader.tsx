@@ -79,21 +79,15 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       }
 
       // Manual progress tracking
-      setProgress(10);
-      await worker.load();
+      setProgress(20);
       
-      setProgress(30);
-      await worker.loadLanguage('eng');
-      
-      setProgress(50);
-      await worker.initialize('eng');
-
-      // convert file to blob/url
-      setProgress(60);
+      // Convert file to blob/url
       const imgURL = URL.createObjectURL(imageFile);
       
-      setProgress(70);
-      const { data } = await worker.recognize(imgURL, { 
+      setProgress(40);
+      
+      // Worker is pre-loaded in newer Tesseract.js, just recognize directly
+      const { data } = await worker.recognize(imgURL, 'eng', { 
         tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK 
       });
       
