@@ -267,32 +267,54 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
     // --- TEMPLATE-SPECIFIC LOGIC ---
     if (template === 'gcash') {
-      // Extract reference number - VERY specific pattern for GCash
-      // Matches: "Ref No. 0033 076 950354" or "Ref. No. 0033076950354"
-      let refMatch = text.match(/Ref\.?\s*No\.?\s*([0-9 ]{13,20})/i);
-      if (refMatch) {
-        refNumber = refMatch[1].replace(/\s+/g, '').trim();
-      } else {
-        // Fallback: look for long number sequences (13+ digits)
-        const longNumMatch = text.match(/\b([0-9 ]{13,20})\b/);
-        if (longNumMatch) refNumber = longNumMatch[1].replace(/\s+/g, '').trim();
+      console.log('🔍 GCash Parser - Input text:', text);
+      
+      // Extract reference number - Multiple attempts with different patterns
+      const refPatterns = [
+        /Ref\.?\s*No\.?\s*[:\-]?\s*([0-9 ]{10,20})/i,         // "Ref No. 0033 076 950354"
+        /Reference\s*[:\-]?\s*([0-9 ]{10,20})/i,               // "Reference: 0033076950354"
+        /Ref\s*[:\-]?\s*([0-9 ]{10,20})/i,                     // "Ref: 0033076950354"
+        /\b([0-9]{4}\s*[0-9]{3}\s*[0-9]{6,8})\b/,              // Pattern: "0033 076 950354"
+        /\b([0-9]{13,15})\b/,                                   // Any 13-15 digit number
+      ];
+      
+      for (const pattern of refPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const cleaned = match[1].replace(/\s+/g, '').trim();
+          if (cleaned.length >= 10) {
+            refNumber = cleaned;
+            console.log('✅ Ref found with pattern:', pattern, '→', refNumber);
+            break;
+          }
+        }
       }
 
-      // STRICT amount extraction - must have context word BEFORE the number
-      // This prevents phone numbers from being captured
+      // FLEXIBLE amount extraction with multiple patterns
       const amountPatterns = [
-        /Total\s*Amount\s*Sent\s*[₱PF]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
-        /Amount\s+([0-9]{1,6}(?:\.[0-9]{2})?)\s*$/mi,  // "Amount 150.00"
-        /Amount\s*[₱PF]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        // Very specific patterns first
+        /Total\s*Amount\s*Sent\s*[₱PFp]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        /(?:Total\s+)?Amount\s*[₱PFp]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        
+        // Line-based patterns (amount on its own line)
+        /^Amount\s+([0-9]{1,6}(?:\.[0-9]{2})?)\s*$/mi,
+        /^([0-9]{1,6}\.[0-9]{2})\s*$/m,  // Just the number with decimals
+        
+        // Peso sign patterns
+        /[₱PFp]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
+        
+        // Last resort: any number with decimal that looks like money
+        /\b([1-9][0-9]{0,5}\.[0-9]{2})\b/,
       ];
       
       for (const pattern of amountPatterns) {
         const match = text.match(pattern);
         if (match && match[1]) {
-          // Additional validation: must be between 1 and 999999
           const numericAmount = parseFloat(match[1]);
-          if (numericAmount >= 1 && numericAmount <= 999999) {
+          // Must be reasonable amount, not phone-like
+          if (numericAmount >= 1 && numericAmount <= 999999 && match[1] !== '63' && match[1] !== '912') {
             amount = match[1].trim();
+            console.log('✅ Amount found with pattern:', pattern, '→', amount);
             break;
           }
         }
@@ -300,6 +322,8 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
       const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)|(\d{2}\/\d{2}\/\d{4})/i);
       if (dateMatch) date = dateMatch[0];
+      
+      console.log('📊 GCash Parser Results:', { refNumber, amount, date });
     }
     else if (template === 'bpi') {
       const refMatch = text.match(/Transaction\s*(?:ID|Code|No\.)[:\s]*([0-9A-Za-z\-]+)/i);
