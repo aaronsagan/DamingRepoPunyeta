@@ -174,17 +174,34 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     return 'unknown';
   }
 
-  // GCash-specific parser
+  // GCash-specific parser (improved)
   function parseGcashReceipt(text: string) {
-    const refMatch = text.match(/Ref(?:\.|erence)?\s*(?:No\.|Number)?[:\s]*([0-9]{6,})/i);
-    const amountMatch = text.match(/(?:Total\s*)?Amount\s*(?:Sent|Paid)?\s*(?:₱|PHP)?\s*([0-9.,]+)/i);
-    const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})|(\d{4}-\d{2}-\d{2})/i);
+    // Normalize text: remove multiple spaces, unify case
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+    const lower = cleanText.toLowerCase();
 
-    return {
-      refNumber: refMatch?.[1] || '',
-      amount: amountMatch?.[1]?.replace(/,/g, '') || '',
-      date: dateMatch?.[0] || '',
-    };
+    // 🔍 Extract Reference Number (handles spaces in numbers)
+    // Example: "Ref No. 0033 076 950354"
+    const refMatch = cleanText.match(/Ref(?:\.|erence)?(?:\s*No\.?)?\s*[:\-]?\s*([0-9 ]{6,})/i);
+    let refNumber = refMatch?.[1]?.replace(/\s+/g, '') || '';
+
+    // 🔍 Extract Amount
+    // Force it to only look after "Amount", "Total Amount Sent", or "PHP/₱"
+    // Prevents +63 or phone numbers from matching
+    const amountMatch = cleanText.match(/(?:Total\s*Amount\s*Sent|Amount)\s*(?:[:\-]?\s*)?(?:₱|PHP|P|F)?\s*([0-9]{1,6}(?:\.[0-9]{1,2})?)/i);
+    let amount = amountMatch?.[1] || '';
+
+    // 🧠 Extra Fix: if no amount found, try fallback
+    if (!amount) {
+      const backupMatch = cleanText.match(/₱\s*([0-9]{1,6}(?:\.[0-9]{1,2})?)/);
+      if (backupMatch) amount = backupMatch[1];
+    }
+
+    // 🔍 Extract Date
+    const dateMatch = cleanText.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/);
+    const date = dateMatch?.[0] || '';
+
+    return { refNumber, amount, date };
   }
 
   // Maya/PayMaya-specific parser
