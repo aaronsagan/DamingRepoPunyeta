@@ -251,24 +251,35 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
     // --- TEMPLATE DETECTION ---
     let template = 'generic';
-    if (lower.includes('gcash') || lower.includes('sent via gcash')) {
+    
+    // More flexible GCash detection - check for multiple indicators
+    if (lower.includes('gcash') || lower.includes('sent via gcash') || 
+        (lower.includes('ref no') && lower.includes('total amount sent'))) {
       template = 'gcash';
       setReceiptType('gcash');
+      console.log('✅ Detected as GCash receipt');
     } else if (lower.includes('bpi')) {
       template = 'bpi';
       setReceiptType('bpi');
+      console.log('✅ Detected as BPI receipt');
     } else if (lower.includes('maya') || lower.includes('paymaya')) {
       template = 'maya';
       setReceiptType('maya');
+      console.log('✅ Detected as Maya receipt');
     } else if (lower.includes('bdo')) {
       template = 'bdo';
       setReceiptType('bdo');
+      console.log('✅ Detected as BDO receipt');
     } else if (lower.includes('paypal')) {
       template = 'paypal';
       setReceiptType('paypal');
+      console.log('✅ Detected as PayPal receipt');
     } else {
       setReceiptType('unknown');
+      console.log('⚠️ No specific template detected, using generic parser');
     }
+    
+    console.log('🏷️ Template selected:', template);
 
     let refNumber = '';
     let amount = '';
@@ -371,19 +382,60 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     }
 
     // --- FALLBACK PATTERNS (if template didn't match) ---
+    console.log('🔄 Checking fallback patterns...', { hasRef: !!refNumber, hasAmount: !!amount, hasDate: !!date });
+    
     if (!refNumber) {
-      const refFallback = text.match(/\b([0-9]{8,})\b/);
-      if (refFallback) refNumber = refFallback[1];
+      console.log('🔍 Trying fallback ref patterns...');
+      const refFallbackPatterns = [
+        /Ref\s+No\.\s+([0-9 ]{10,})/i,
+        /Reference\s+([0-9 ]{10,})/i,
+        /\b([0-9]{4}\s+[0-9]{3}\s+[0-9]{6,})\b/,
+        /\b([0-9]{13,15})\b/,
+      ];
+      
+      for (const pattern of refFallbackPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const cleaned = match[1].replace(/\s+/g, '');
+          if (cleaned.length >= 10) {
+            refNumber = cleaned;
+            console.log('✅ Fallback ref found:', refNumber);
+            break;
+          }
+        }
+      }
     }
 
     if (!amount) {
-      const amtFallback = text.match(/₱?\s*([0-9]{2,6}(?:\.[0-9]{1,2})?)/i);
-      if (amtFallback) amount = amtFallback[1];
+      console.log('🔍 Trying fallback amount patterns...');
+      const amtFallbackPatterns = [
+        /Amount\s+(\d{1,6}\.?\d{0,2})\b/i,
+        /Total\s+Amount\s+Sent\s+[£₱PF]?(\d{1,6}\.?\d{0,2})/i,
+        /[£₱]\s*(\d{1,6}\.\d{2})/i,
+        /\b(\d{1,6}\.\d{2})\b/,
+      ];
+      
+      for (const pattern of amtFallbackPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const testAmt = match[1];
+          const numValue = parseFloat(testAmt);
+          if (!isNaN(numValue) && numValue >= 1 && numValue <= 999999 &&
+              testAmt !== '63' && testAmt !== '912' && testAmt !== '067') {
+            amount = testAmt;
+            console.log('✅ Fallback amount found:', amount);
+            break;
+          }
+        }
+      }
     }
 
     if (!date) {
-      const dateFallback = text.match(/(\d{4}-\d{2}-\d{2})|([A-Za-z]{3,9}\s\d{1,2},\s?\d{4})|(\d{2}\/\d{2}\/\d{4})/i);
-      if (dateFallback) date = dateFallback[0];
+      const dateFallback = text.match(/([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)|(\d{4}-\d{2}-\d{2})|(\d{2}\/\d{2}\/\d{4})/i);
+      if (dateFallback) {
+        date = dateFallback[0];
+        console.log('✅ Fallback date found:', date);
+      }
     }
 
     // --- 🛡️ ANTI-FAKE VALIDATION ---
