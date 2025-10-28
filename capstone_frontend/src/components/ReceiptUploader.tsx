@@ -232,12 +232,20 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
 
   // 🧠 UNIFIED SMART PARSER with Anti-Fake Detection
   function parseReceiptText(rawText: string) {
+    console.log('🔍 RAW OCR TEXT (before normalization):', rawText);
+    
     // 1️⃣ Normalize text - remove extra spaces and OCR artifacts
     // Keep £ because OCR often reads ₱ as £
     let text = rawText
       .replace(/\s+/g, ' ')
       .replace(/[^\x20-\x7E₱£]/g, '') // remove invisible OCR artifacts but keep £
       .trim();
+
+    console.log('🔍 NORMALIZED TEXT (after cleanup):', text);
+    console.log('🔍 Text contains "Amount"?', text.includes('Amount'));
+    console.log('🔍 Text contains "Ref"?', text.includes('Ref'));
+    console.log('🔍 Text contains "150"?', text.includes('150'));
+    console.log('🔍 Text contains "0033"?', text.includes('0033'));
 
     const lower = text.toLowerCase();
 
@@ -269,63 +277,67 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     // --- TEMPLATE-SPECIFIC LOGIC ---
     if (template === 'gcash') {
       console.log('🔍 GCash Parser - Input text:', text);
+      console.log('🔍 Raw text length:', text.length);
       
-      // Extract reference number - Multiple attempts with different patterns
-      const refPatterns = [
-        /Ref\.?\s*No\.?\s*[:\-]?\s*([0-9 ]{10,20})/i,         // "Ref No. 0033 076 950354"
-        /Reference\s*[:\-]?\s*([0-9 ]{10,20})/i,               // "Reference: 0033076950354"
-        /Ref\s*[:\-]?\s*([0-9 ]{10,20})/i,                     // "Ref: 0033076950354"
-        /\b([0-9]{4}\s*[0-9]{3}\s*[0-9]{6,8})\b/,              // Pattern: "0033 076 950354"
-        /\b([0-9]{13,15})\b/,                                   // Any 13-15 digit number
+      // REFERENCE NUMBER - Tested against: "Ref No. 0033 076 950354"
+      // Try multiple patterns in order of specificity
+      const refTests = [
+        { pattern: /Ref\s+No\.\s+([0-9 ]{10,})/i, name: 'Ref No.' },
+        { pattern: /Ref\.\s+No\.\s+([0-9 ]{10,})/i, name: 'Ref. No.' },
+        { pattern: /Ref No\s+([0-9 ]{10,})/i, name: 'Ref No (no dots)' },
+        { pattern: /Reference\s+([0-9 ]{10,})/i, name: 'Reference' },
+        { pattern: /\b([0-9]{4}\s+[0-9]{3}\s+[0-9]{6,})\b/, name: 'Spaced pattern' },
+        { pattern: /\b([0-9]{13,15})\b/, name: 'Long number' },
       ];
       
-      for (const pattern of refPatterns) {
-        const match = text.match(pattern);
+      for (const test of refTests) {
+        const match = text.match(test.pattern);
         if (match && match[1]) {
-          const cleaned = match[1].replace(/\s+/g, '').trim();
-          if (cleaned.length >= 10) {
+          const cleaned = match[1].replace(/\s+/g, '');
+          if (cleaned.length >= 10 && cleaned.length <= 20) {
             refNumber = cleaned;
-            console.log('✅ Ref found with pattern:', pattern, '→', refNumber);
+            console.log('✅ Ref matched:', test.name, '→', refNumber);
             break;
           }
+        } else {
+          console.log('❌ Ref pattern failed:', test.name);
         }
       }
 
-      // FLEXIBLE amount extraction with multiple patterns
-      // NOTE: OCR often reads ₱ as £ (pound sign)!
-      const amountPatterns = [
-        // Very specific patterns first (includes £ for misread peso sign)
-        /Total\s*Amount\s*Sent\s*[₱PFp£]?\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
-        /(?:Total\s+)?Amount\s*[₱PFp£]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
-        
-        // Line-based patterns (amount on its own line)
-        /^Amount\s+([0-9]{1,6}(?:\.[0-9]{2})?)\s*$/mi,
-        /Amount\s+([0-9]{1,6}\.[0-9]{2})/i,  // "Amount 150.00"
-        
-        // Peso/Pound sign patterns (OCR confusion)
-        /[₱PFp£]\s*([0-9]{1,6}(?:\.[0-9]{2})?)/i,
-        
-        // Last resort: any number with decimal that looks like money
-        /\b([1-9][0-9]{0,5}\.[0-9]{2})\b/,
+      // AMOUNT - Tested against: "Amount 150.00" and "Total Amount Sent £150.00"
+      const amountTests = [
+        { pattern: /Amount\s+(\d{1,6}\.?\d{0,2})\b/i, name: 'Amount [number]' },
+        { pattern: /Total\s+Amount\s+Sent\s+[£₱PF]?(\d{1,6}\.?\d{0,2})/i, name: 'Total Amount Sent' },
+        { pattern: /Amount\s+[£₱PF]?(\d{1,6}\.?\d{0,2})/i, name: 'Amount [symbol][number]' },
+        { pattern: /[£₱]\s*(\d{1,6}\.\d{2})/i, name: 'Symbol only' },
+        { pattern: /\b(\d{1,6}\.\d{2})\b/, name: 'Decimal number' },
       ];
       
-      for (const pattern of amountPatterns) {
-        const match = text.match(pattern);
+      for (const test of amountTests) {
+        const match = text.match(test.pattern);
         if (match && match[1]) {
-          const numericAmount = parseFloat(match[1]);
-          // Must be reasonable amount, not phone-like
-          if (numericAmount >= 1 && numericAmount <= 999999 && match[1] !== '63' && match[1] !== '912') {
-            amount = match[1].trim();
-            console.log('✅ Amount found with pattern:', pattern, '→', amount);
-            break;
+          const testAmount = match[1];
+          const numValue = parseFloat(testAmount);
+          
+          // Validation: must be real money amount
+          if (!isNaN(numValue) && numValue >= 1 && numValue <= 999999) {
+            // Exclude phone number fragments
+            if (testAmount !== '63' && testAmount !== '912' && testAmount !== '067' && testAmount !== '8350') {
+              amount = testAmount;
+              console.log('✅ Amount matched:', test.name, '→', amount);
+              break;
+            }
           }
+        } else {
+          console.log('❌ Amount pattern failed:', test.name);
         }
       }
 
-      const dateMatch = text.match(/([A-Za-z]{3,9}\s\d{1,2},\s?\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)|(\d{2}\/\d{2}\/\d{4})/i);
+      const dateMatch = text.match(/([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)|(\d{2}\/\d{2}\/\d{4})/i);
       if (dateMatch) date = dateMatch[0];
       
-      console.log('📊 GCash Parser Results:', { refNumber, amount, date });
+      console.log('📊 Final Results:', { refNumber, amount, date });
+      console.log('📊 Values found:', { hasRef: !!refNumber, hasAmount: !!amount, hasDate: !!date });
     }
     else if (template === 'bpi') {
       const refMatch = text.match(/Transaction\s*(?:ID|Code|No\.)[:\s]*([0-9A-Za-z\-]+)/i);
