@@ -25,6 +25,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   const [parsedRef, setParsedRef] = useState<string>('');
   const [parsedAmount, setParsedAmount] = useState<string>('');
   const [parsedDate, setParsedDate] = useState<string>('');
+  const [workerReady, setWorkerReady] = useState<boolean>(false);
   const workerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -33,11 +34,11 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
     
     (async () => {
       try {
-        const worker = await Tesseract.createWorker({
-          logger: () => {} // Empty logger to avoid DataCloneError
-        });
+        // Create worker WITHOUT logger to avoid DataCloneError
+        const worker = await Tesseract.createWorker();
         if (mounted) {
           workerRef.current = worker;
+          setWorkerReady(true);
         }
       } catch (err) {
         console.error('Failed to initialize Tesseract worker:', err);
@@ -188,44 +189,118 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
   }
 
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-medium">Upload Receipt</label>
-      <input type="file" accept="image/*,application/pdf" onChange={onFileSelected} />
-      {file && (
-        <div className="mt-2">
-          <p className="text-sm">Selected: {file.name}</p>
+    <div className="space-y-4">
+      {/* Worker Status */}
+      {!workerReady && (
+        <div className="flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400">
+          <div className="animate-spin h-3 w-3 border-2 border-yellow-500 border-t-transparent rounded-full" />
+          Initializing OCR engine...
         </div>
       )}
 
-      <div>
-        <div className="mt-2">
-          <p className="text-xs text-muted-foreground">OCR Progress: {progress}%</p>
-          {parsing && <progress value={progress} max={100} />}
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs font-medium">Reference Number (editable)</label>
-            <input value={parsedRef} onChange={(e)=>setParsedRef(e.target.value)} className="input" />
-          </div>
-          <div>
-            <label className="text-xs font-medium">Amount (editable)</label>
-            <input value={parsedAmount} onChange={(e)=>setParsedAmount(e.target.value)} className="input" />
-          </div>
-          <div>
-            <label className="text-xs font-medium">Date (editable)</label>
-            <input value={parsedDate} onChange={(e)=>setParsedDate(e.target.value)} className="input" />
-          </div>
-        </div>
-
-        <div className="mt-3 text-xs text-muted-foreground">
-          <p>OCR Confidence: {confidence ?? 'N/A'}%</p>
-          <p className="mt-2">Raw OCR text (debug):</p>
-          <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded">{ocrText || 'No OCR text yet'}</pre>
-        </div>
-
-        {/* Optional: on a real form you would send the file + parsed values to backend when user submits form */}
+      {/* File Upload */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">Upload Receipt</label>
+        <input 
+          type="file" 
+          accept="image/*,application/pdf" 
+          onChange={onFileSelected}
+          disabled={!workerReady}
+          className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        {!workerReady && (
+          <p className="text-xs text-muted-foreground">Please wait for OCR engine to initialize...</p>
+        )}
       </div>
+
+      {/* File Info */}
+      {file && (
+        <div className="p-3 rounded-lg bg-muted/30 border border-border">
+          <p className="text-xs text-muted-foreground">Selected:</p>
+          <p className="text-sm font-medium truncate">{file.name}</p>
+        </div>
+      )}
+
+      {/* Progress Bar */}
+      {parsing && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Processing OCR...</span>
+            <span className="font-medium text-primary">{progress}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div 
+              className="bg-primary h-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Editable Extracted Fields */}
+      {(parsedRef || parsedAmount || parsedDate) && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-primary">📝 Extracted Values (Editable)</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Reference Number</label>
+              <input 
+                value={parsedRef} 
+                onChange={(e)=>setParsedRef(e.target.value)} 
+                placeholder="Not detected"
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Amount</label>
+              <input 
+                value={parsedAmount} 
+                onChange={(e)=>setParsedAmount(e.target.value)} 
+                placeholder="Not detected"
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <input 
+                value={parsedDate} 
+                onChange={(e)=>setParsedDate(e.target.value)} 
+                placeholder="Not detected"
+                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confidence & Raw Text */}
+      {confidence !== null && (
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">OCR Confidence:</p>
+            <p className={`text-xs font-bold ${
+              confidence >= 85 ? 'text-green-600 dark:text-green-400' :
+              confidence >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
+              'text-red-600 dark:text-red-400'
+            }`}>
+              {confidence}%
+            </p>
+          </div>
+          
+          {/* Collapsible Raw Text */}
+          <details className="group">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Show Raw OCR Text
+            </summary>
+            <pre className="mt-2 text-xs bg-muted/50 border border-border rounded-md p-3 max-h-32 overflow-auto font-mono whitespace-pre-wrap">
+              {ocrText || 'No text extracted'}
+            </pre>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
