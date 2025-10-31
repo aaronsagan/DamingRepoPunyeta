@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Share2, TrendingUp, Heart, Award, DollarSign } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Settings, Share2, TrendingUp, Heart, Award, DollarSign, Calendar, MapPin } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
@@ -15,22 +16,41 @@ export default function Profile() {
   const [stats, setStats] = useState({
     totalDonated: 0,
     campaignsSupported: 0,
-    charitiesHelped: 0,
-    donationsMade: 0,
+    recentDonations: 0,
+    likedCampaigns: 0,
   });
+
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [editingBio, setEditingBio] = useState(false);
+  const [bio, setBio] = useState("Making a difference through charitable giving and community support.");
 
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    // TODO: Fetch donor stats from API
-    // For now, using placeholder data
-    setStats({
-      totalDonated: 0,
-      campaignsSupported: 0,
-      charitiesHelped: 0,
-      donationsMade: 0,
-    });
+    fetchDonorData();
   }, []);
+
+  const fetchDonorData = async () => {
+    try {
+      // TODO: Fetch from API
+      // For now using placeholder
+      setStats({
+        totalDonated: 0,
+        campaignsSupported: 0,
+        recentDonations: 0,
+        likedCampaigns: 0,
+      });
+      setRecentActivity([]);
+    } catch (error) {
+      console.error('Error fetching donor data:', error);
+    }
+  };
+
+  const handleSaveBio = () => {
+    // TODO: API call to save bio
+    toast.success('Bio updated successfully');
+    setEditingBio(false);
+  };
 
   const copyProfileLink = () => {
     const link = `${window.location.origin}/donor/profile`;
@@ -43,6 +63,14 @@ export default function Profile() {
       {/* Cover Banner */}
       <div className="relative h-64 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="absolute top-4 left-4 text-white hover:bg-white/20"
+          onClick={() => navigate(-1)}
+        >
+          ← Back
+        </Button>
       </div>
 
       {/* Profile Header */}
@@ -67,10 +95,14 @@ export default function Profile() {
                 <Award className="h-3 w-3 mr-1" />
                 Verified
               </Badge>
+              <Badge variant="outline" className="text-xs">
+                Donor Account
+              </Badge>
             </div>
-            <p className="text-muted-foreground">
-              Helping communities one step at a time
-            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{user?.address || 'Philippines'}</span>
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -85,12 +117,12 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Donor Specific */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="border-t-4 border-t-green-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Total Raised</p>
+                <p className="text-sm text-muted-foreground">Total Donated</p>
                 <DollarSign className="h-5 w-5 text-green-600" />
               </div>
               <p className="text-3xl font-bold text-green-600">₱{stats.totalDonated.toLocaleString()}</p>
@@ -100,7 +132,7 @@ export default function Profile() {
           <Card className="border-t-4 border-t-blue-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Active Campaigns</p>
+                <p className="text-sm text-muted-foreground">Campaigns Supported</p>
                 <TrendingUp className="h-5 w-5 text-blue-600" />
               </div>
               <p className="text-3xl font-bold text-blue-600">{stats.campaignsSupported}</p>
@@ -110,115 +142,169 @@ export default function Profile() {
           <Card className="border-t-4 border-t-purple-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Followers</p>
-                <Heart className="h-5 w-5 text-purple-600" />
+                <p className="text-sm text-muted-foreground">Recent Donations</p>
+                <Calendar className="h-5 w-5 text-purple-600" />
               </div>
-              <p className="text-3xl font-bold text-purple-600">{stats.charitiesHelped}</p>
+              <p className="text-3xl font-bold text-purple-600">{stats.recentDonations}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-amber-500">
+          <Card className="border-t-4 border-t-pink-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Updates</p>
-                <Award className="h-5 w-5 text-amber-600" />
+                <p className="text-sm text-muted-foreground">Liked Campaigns</p>
+                <Heart className="h-5 w-5 text-pink-600" />
               </div>
-              <p className="text-3xl font-bold text-amber-600">{stats.donationsMade}</p>
+              <p className="text-3xl font-bold text-pink-600">{stats.likedCampaigns}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Content Sections */}
-        <div className="grid md:grid-cols-2 gap-6 pb-12">
-          {/* About Section */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Mission</h2>
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-muted-foreground">
-                Making a difference through charitable giving and community support.
-              </p>
-            </CardContent>
-          </Card>
+        {/* Tabs Section */}
+        <Tabs defaultValue="about" className="mb-8">
+          <TabsList>
+            <TabsTrigger value="about">About</TabsTrigger>
+            <TabsTrigger value="activity">Recent Activity</TabsTrigger>
+          </TabsList>
 
-          {/* Contact Information */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-bold">Contact Information</h2>
-                  <p className="text-sm text-muted-foreground">Get in touch with us</p>
-                </div>
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
-                    <Award className="h-4 w-4 text-orange-600" />
+          <TabsContent value="about" className="space-y-6 mt-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* About / Mission */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">About</h2>
+                    {!editingBio ? (
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setEditingBio(true)}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setEditingBio(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={handleSaveBio}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {editingBio ? (
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      className="w-full p-3 border rounded-md bg-background min-h-[100px] resize-none"
+                      placeholder="Tell others about yourself..."
+                    />
+                  ) : (
+                    <p className="text-muted-foreground">
+                      {bio}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Contact Information */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold">Contact Information</h2>
+                      <p className="text-sm text-muted-foreground">Get in touch</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
+                        <Heart className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Email address</p>
+                        <p className="font-medium truncate">{user?.email || 'donor@example.com'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Member Information */}
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-xl font-bold mb-4">Member Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Member Since</p>
+                    <Badge variant="outline" className="text-sm">
+                      {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'October 2025'}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Admin Name</p>
-                    <p className="font-medium">{user?.name || 'Donor'}</p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                    <Heart className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm text-muted-foreground mb-2">Account Type</p>
+                    <Badge variant="outline" className="text-sm">Donor</Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Email address</p>
-                    <p className="font-medium">{user?.email || 'donor@example.com'}</p>
+                    <p className="text-sm text-muted-foreground mb-2">Status</p>
+                    <Badge className="bg-green-600 text-sm">Active</Badge>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          {/* Vision Section */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Vision</h2>
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-muted-foreground">
-                Creating lasting positive impact in communities through consistent support and engagement.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Member Information */}
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold mb-4">Member Information</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Member Since</p>
-                  <Badge variant="outline">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'October 2025'}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Account Type</p>
-                  <Badge variant="outline">Donor</Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Status</p>
-                  <Badge className="bg-green-600">Active</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="activity" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Your latest donations and interactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recentActivity.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">No recent activity yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Start supporting campaigns to see your activity here
+                    </p>
+                    <Button 
+                      className="mt-4"
+                      onClick={() => navigate('/donor/campaigns')}
+                    >
+                      Explore Campaigns
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-start gap-4 p-4 rounded-lg border">
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback>C</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium">{activity.title}</p>
+                          <p className="text-sm text-muted-foreground">{activity.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{activity.date}</p>
+                        </div>
+                        <Badge variant="outline">{activity.amount}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
