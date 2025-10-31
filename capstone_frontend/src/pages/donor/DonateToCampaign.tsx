@@ -539,11 +539,11 @@ export default function DonateToCampaign() {
                     
                     {/* OCR Info Card - Clean & Simple */}
                     {ocrResult && (
-                      <div className="rounded-lg border p-3 space-y-2 bg-background/50">
+                      <div className="rounded-lg border border-border/50 p-3 bg-background/50">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
                             {ocrResult.template && ocrResult.template !== 'unknown' && (
-                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase">
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase text-xs">
                                 🏦 {ocrResult.template}
                               </span>
                             )}
@@ -560,25 +560,27 @@ export default function DonateToCampaign() {
                               {ocrResult.confidence ?? "N/A"}%
                             </span>
                           </div>
+                          
+                          {/* Debug Toggle */}
+                          <details className="group inline-block">
+                            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none">
+                              🐛 Debug
+                            </summary>
+                            <div className="absolute right-0 mt-2 w-80 z-10">
+                              <pre className="whitespace-pre-wrap text-xs bg-muted border border-border rounded-md p-3 max-h-32 overflow-auto font-mono shadow-lg">
+                                {ocrResult.text || "No OCR text available"}
+                              </pre>
+                            </div>
+                          </details>
                         </div>
 
-                        {/* Status Messages */}
+                        {/* Low Confidence Warning */}
                         {(ocrResult.confidence ?? 0) < 60 && (
-                          <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
+                          <div className="flex items-start gap-2 mt-2 text-xs text-red-600 dark:text-red-400">
                             <span>⚠️</span>
                             <p>Low confidence detected. Please verify or re-upload a clearer receipt.</p>
                           </div>
                         )}
-
-                        {/* Collapsible Debug Section */}
-                        <details className="pt-2 border-t border-border/30">
-                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                            🐛 Show Raw OCR Text (Debug)
-                          </summary>
-                          <pre className="mt-2 whitespace-pre-wrap text-xs bg-muted border border-border rounded-md p-2 max-h-32 overflow-auto font-mono">
-                            {ocrResult.text || "No OCR text available"}
-                          </pre>
-                        </details>
                       </div>
                     )}
                   </div>
