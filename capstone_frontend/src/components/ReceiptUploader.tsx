@@ -8,6 +8,7 @@ type OCRResult = {
   amount?: string;
   date?: string;
   confidence?: number; // 0-100
+  template?: string; // receipt type (gcash, bpi, etc)
 };
 
 type Props = {
@@ -491,7 +492,8 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
           accept="image/*,application/pdf" 
           onChange={onFileSelected}
           disabled={!workerReady}
-          className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-file-upload-button]:mr-4 [&::file-selector-button]:mr-4"
+          style={{ color: 'transparent' }}
         />
         {!workerReady && (
           <p className="text-xs text-muted-foreground">Please wait for OCR engine to initialize...</p>
@@ -525,35 +527,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       {/* OCR Status - Compact Display */}
       {confidence !== null && (
         <div className="space-y-2">
-          {/* Success indicator when high confidence */}
-          {confidence >= 70 && (parsedRef || parsedAmount || parsedDate) && (
-            <div className="flex items-start gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
-              <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
-              <p className="text-xs text-green-600 dark:text-green-400">
-                OCR extraction successful ({confidence}%). Form fields have been auto-populated.
-              </p>
-            </div>
-          )}
-
-          {/* Warnings for low confidence or missing values */}
-          {confidence < 60 && (
-            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
-              <span className="text-red-600 dark:text-red-400 text-xs">⚠️</span>
-              <p className="text-xs text-red-600 dark:text-red-400">
-                <strong>Low confidence ({confidence}%):</strong> Please verify or manually enter the values.
-              </p>
-            </div>
-          )}
-
-          {confidence >= 60 && confidence < 70 && (
-            <div className="flex items-start gap-2 p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
-              <span className="text-yellow-600 dark:text-yellow-400 text-xs">⚠️</span>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                Moderate confidence ({confidence}%). Please verify extracted values.
-              </p>
-            </div>
-          )}
-
+          {/* Warnings for missing values */}
           {(!parsedAmount || parsedAmount === '') && confidence !== null && (
             <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
               <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
@@ -568,6 +542,16 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
               <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
               <p className="text-xs text-orange-600 dark:text-orange-400">
                 <strong>Reference number not detected.</strong> Please enter it manually.
+              </p>
+            </div>
+          )}
+          
+          {/* Low confidence warning */}
+          {confidence < 60 && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
+              <span className="text-red-600 dark:text-red-400 text-xs">⚠️</span>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                <strong>Low confidence ({confidence}%):</strong> Please verify or manually enter the values.
               </p>
             </div>
           )}
