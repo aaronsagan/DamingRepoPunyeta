@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Heart, Moon, Sun, User, LogOut, UserCircle, History, TrendingUp, Bell, AlertTriangle, Settings, HelpCircle } from "lucide-react";
+import { Heart, Moon, Sun, User, LogOut, UserCircle, History, TrendingUp, Bell, AlertTriangle, Settings, HelpCircle, BarChart3, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -82,6 +82,16 @@ export const DonorNavbar = () => {
               News Feed
             </NavLink>
             <NavLink
+              to="/donor/campaigns/browse"
+              className={({ isActive }) =>
+                `text-sm font-medium transition-colors hover:text-primary ${
+                  isActive ? "text-primary" : "text-muted-foreground"
+                }`
+              }
+            >
+              Campaigns
+            </NavLink>
+            <NavLink
               to="/donor/charities"
               className={({ isActive }) =>
                 `text-sm font-medium transition-colors hover:text-primary ${
@@ -90,6 +100,16 @@ export const DonorNavbar = () => {
               }
             >
               Charities
+            </NavLink>
+            <NavLink
+              to="/donor/campaign-analytics"
+              className={({ isActive }) =>
+                `text-sm font-medium transition-colors hover:text-primary ${
+                  isActive ? "text-primary" : "text-muted-foreground"
+                }`
+              }
+            >
+              Analytics
             </NavLink>
             <NavLink
               to="/donor/history"
@@ -199,6 +219,14 @@ export const DonorNavbar = () => {
                 
                 {/* Mobile-only navigation items */}
                 <div className="md:hidden">
+                  <DropdownMenuItem onClick={() => navigate('/donor/campaigns/browse')} className="cursor-pointer hover:bg-muted transition-colors py-2">
+                    <Target className="mr-3 h-4 w-4" />
+                    Browse Campaigns
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/donor/campaign-analytics')} className="cursor-pointer hover:bg-muted transition-colors py-2">
+                    <BarChart3 className="mr-3 h-4 w-4" />
+                    Analytics
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/donor/history')} className="cursor-pointer hover:bg-muted transition-colors py-2">
                     <History className="mr-3 h-4 w-4" />
                     Donation History

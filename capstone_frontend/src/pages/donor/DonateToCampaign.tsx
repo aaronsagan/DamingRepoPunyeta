@@ -17,6 +17,7 @@ import {
 import { ArrowLeft, Upload, X, Loader2, CheckCircle, Heart, TrendingUp, Target } from "lucide-react";
 import { toast } from "sonner";
 import { buildApiUrl, buildStorageUrl, getAuthToken } from "@/lib/api";
+import ReceiptUploader from "@/components/ReceiptUploader";
 
 interface Campaign {
   id: number;
@@ -54,12 +55,14 @@ export default function DonateToCampaign() {
     amount: "",
     channel_used: "",
     reference_number: "",
+    donation_date: "",
     message: "",
     is_anonymous: false,
   });
 
   const [proofImage, setProofImage] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<any>(null);
 
   useEffect(() => {
     fetchCampaignDetails();
@@ -149,6 +152,15 @@ export default function DonateToCampaign() {
       if (formData.message) submitData.append("message", formData.message);
       submitData.append("is_anonymous", formData.is_anonymous ? "1" : "0");
       submitData.append("proof_image", proofImage);
+      
+      // Add OCR fields if available
+      if (ocrResult) {
+        submitData.append("ocr_text", ocrResult.text || "");
+        submitData.append("ocr_ref_number", ocrResult.refNumber || "");
+        submitData.append("ocr_amount", ocrResult.amount || "");
+        submitData.append("ocr_date", ocrResult.date || "");
+        submitData.append("ocr_confidence", String(ocrResult.confidence || 0));
+      }
 
       const response = await fetch(buildApiUrl(`/campaigns/${campaignId}/donate`), {
         method: "POST",
@@ -383,11 +395,65 @@ export default function DonateToCampaign() {
                       Donation Details
                     </h3>
 
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Amount */}
+                    {/* Payment Channel */}
+                    <div className="space-y-2">
+                      <Label htmlFor="channel_used" className="text-sm font-medium">
+                        Payment Channel <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.channel_used}
+                        onValueChange={(value) => setFormData({ ...formData, channel_used: value })}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {channels.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground text-center">
+                              No channels available
+                            </div>
+                          ) : (
+                            channels.map((channel) => (
+                              <SelectItem key={channel.id} value={channel.label}>
+                                {channel.label} ({channel.type})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">💡 Helps improve OCR accuracy</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {/* Reference Number - OCR Locked */}
                       <div className="space-y-2">
-                        <Label htmlFor="amount" className="text-sm font-medium">
-                          Amount Donated <span className="text-destructive">*</span>
+                        <Label htmlFor="reference_number" className="text-sm font-medium flex items-center gap-1">
+                          Reference Number <span className="text-destructive">*</span>
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
+                        </Label>
+                        <Input
+                          id="reference_number"
+                          value={formData.reference_number}
+                          onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                          placeholder="OCR auto-fills"
+                          className="h-11"
+                          disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.refNumber}
+                          required
+                        />
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
+                      </div>
+
+                      {/* Amount - OCR Locked */}
+                      <div className="space-y-2">
+                        <Label htmlFor="amount" className="text-sm font-medium flex items-center gap-1">
+                          Amount <span className="text-destructive">*</span>
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
                         </Label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₱</span>
@@ -398,58 +464,49 @@ export default function DonateToCampaign() {
                             step="0.01"
                             value={formData.amount}
                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                            placeholder="0.00"
+                            placeholder="OCR auto-fills"
                             className="h-11 pl-7"
+                            disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.amount}
                             required
                           />
                         </div>
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
                       </div>
 
-                      {/* Channel Used */}
+                      {/* Date - OCR Locked */}
                       <div className="space-y-2">
-                        <Label htmlFor="channel_used" className="text-sm font-medium">
-                          Payment Channel <span className="text-destructive">*</span>
+                        <Label htmlFor="donation_date" className="text-sm font-medium flex items-center gap-1">
+                          Date <span className="text-destructive">*</span>
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
                         </Label>
-                        <Select
-                          value={formData.channel_used}
-                          onValueChange={(value) => setFormData({ ...formData, channel_used: value })}
-                        >
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="Select payment method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {channels.length === 0 ? (
-                              <div className="p-2 text-sm text-muted-foreground text-center">
-                                No channels available
-                              </div>
-                            ) : (
-                              channels.map((channel) => (
-                                <SelectItem key={channel.id} value={channel.label}>
-                                  {channel.label} ({channel.type})
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          id="donation_date"
+                          value={formData.donation_date}
+                          onChange={(e) => setFormData({ ...formData, donation_date: e.target.value })}
+                          placeholder="OCR auto-fills"
+                          className="h-11"
+                          disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.date}
+                          required
+                        />
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Reference Number */}
-                    <div className="space-y-2">
-                      <Label htmlFor="reference_number" className="text-sm font-medium">
-                        Reference Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="reference_number"
-                        value={formData.reference_number}
-                        onChange={(e) =>
-                          setFormData({ ...formData, reference_number: e.target.value })}
-                        placeholder="Transaction/Reference number"
-                        className="h-11"
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Enter the transaction ID from your payment</p>
-                    </div>
+                    {/* Info Banner */}
+                    {ocrResult && (ocrResult.confidence ?? 0) >= 70 && (
+                      <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 flex items-start gap-2">
+                        <span className="text-green-600 dark:text-green-400 text-sm">🛡️</span>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          <strong>High confidence extraction:</strong> Fields are locked to ensure data integrity. OCR values will be used for verification.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Proof Upload Section */}
@@ -459,52 +516,59 @@ export default function DonateToCampaign() {
                       Upload Proof of Payment
                     </h3>
 
-                    {/* Proof Image Upload */}
-                    <div className="space-y-2">
-                      {proofPreview ? (
-                        <div className="relative">
-                          <img
-                            src={proofPreview}
-                            alt="Proof preview"
-                            className="w-full h-64 object-cover rounded-xl border-2 border-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProofImage(null);
-                              setProofPreview(null);
-                            }}
-                            className="absolute top-3 right-3 p-2 bg-destructive text-white rounded-full hover:bg-destructive/90 shadow-lg"
+                    <ReceiptUploader
+                      onFileChange={(file) => {
+                        setProofImage(file);
+                        if (file) {
+                          setProofPreview(URL.createObjectURL(file));
+                        } else {
+                          setProofPreview(null);
+                        }
+                      }}
+                      onOCRExtract={(result) => {
+                        setOcrResult(result);
+                        // Auto-populate form fields from OCR (overwrite existing values)
+                        setFormData(prev => ({
+                          ...prev,
+                          reference_number: result.refNumber || prev.reference_number,
+                          amount: result.amount || prev.amount,
+                          donation_date: result.date || prev.donation_date,
+                        }));
+                      }}
+                    />
+                    
+                    {/* OCR Info Card - Clean & Simple */}
+                    {ocrResult && (
+                      <div className="rounded-lg border border-border/50 p-3 bg-background/50">
+                        <div className="flex items-center gap-2 text-xs">
+                          {ocrResult.template && ocrResult.template !== 'unknown' && (
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase text-xs">
+                              🏦 {ocrResult.template}
+                            </span>
+                          )}
+                          <span className="text-muted-foreground">OCR Confidence:</span>
+                          <span
+                            className={`font-bold ${
+                              (ocrResult.confidence ?? 0) >= 85
+                                ? "text-green-600 dark:text-green-400"
+                                : (ocrResult.confidence ?? 0) >= 60
+                                ? "text-yellow-600 dark:text-yellow-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
                           >
-                            <X className="h-4 w-4" />
-                          </button>
-                          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs">
-                            ✓ Image uploaded
-                          </div>
+                            {ocrResult.confidence ?? "N/A"}%
+                          </span>
                         </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
-                          <div className="flex flex-col items-center justify-center p-6 text-center">
-                            <div className="p-3 rounded-full bg-primary/10 mb-3">
-                              <Upload className="h-8 w-8 text-primary" />
-                            </div>
-                            <p className="text-sm font-medium mb-1">
-                              Click to upload receipt or screenshot <span className="text-destructive">*</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Supported formats: JPG, PNG (Max 2MB)
-                            </p>
+
+                        {/* Low Confidence Warning */}
+                        {(ocrResult.confidence ?? 0) < 60 && (
+                          <div className="flex items-start gap-2 mt-2 text-xs text-red-600 dark:text-red-400">
+                            <span>⚠️</span>
+                            <p>Low confidence detected. Please verify or re-upload a clearer receipt.</p>
                           </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                            required
-                          />
-                        </label>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Additional Details Section */}

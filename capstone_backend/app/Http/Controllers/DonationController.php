@@ -75,6 +75,12 @@ class DonationController extends Controller
             'proof_image'=>'required|image|mimes:jpg,jpeg,png|max:2048',
             'message'=>'nullable|string|max:1000',
             'is_anonymous'=>'boolean',
+            // OCR fields
+            'ocr_text'=>'nullable|string',
+            'ocr_ref_number'=>'nullable|string',
+            'ocr_amount'=>'nullable|string',
+            'ocr_date'=>'nullable|string',
+            'ocr_confidence'=>'nullable|integer|min:0|max:100',
         ]);
 
         // Store proof image
@@ -84,6 +90,19 @@ class DonationController extends Controller
         $donorId = $r->user() ? $r->user()->id : null;
         if($data['is_anonymous'] ?? false) {
             $donorId = null;
+        }
+
+        // Auto-verify logic based on OCR confidence and amount matching
+        $confidenceThreshold = 65;
+        $verificationStatus = 'pending';
+        $ocrConfidence = $data['ocr_confidence'] ?? null;
+        $ocrAmount = $data['ocr_amount'] ?? null;
+        
+        if ($ocrConfidence !== null && $ocrConfidence >= $confidenceThreshold) {
+            // Check if OCR amount matches submitted amount (within small tolerance)
+            if ($ocrAmount && abs(floatval($ocrAmount) - floatval($data['amount'])) < 0.01) {
+                $verificationStatus = 'auto_verified';
+            }
         }
 
         // Create donation record
@@ -97,12 +116,20 @@ class DonationController extends Controller
             'channel_used' => $data['channel_used'],
             'reference_number' => $data['reference_number'],
             'proof_path' => $proofPath,
+            'receipt_image_path' => $proofPath, // Same as proof_path for now
             'proof_type' => 'image',
             'message' => $data['message'] ?? null,
             'is_anonymous' => $data['is_anonymous'] ?? false,
             'purpose' => 'project',
             'status' => 'pending',
             'donated_at' => now(),
+            // OCR fields
+            'ocr_text' => $data['ocr_text'] ?? null,
+            'ocr_ref_number' => $data['ocr_ref_number'] ?? null,
+            'ocr_amount' => $data['ocr_amount'] ?? null,
+            'ocr_date' => $data['ocr_date'] ?? null,
+            'ocr_confidence' => $ocrConfidence,
+            'verification_status' => $verificationStatus,
         ]);
 
         return response()->json([
@@ -122,6 +149,12 @@ class DonationController extends Controller
             'proof_image'=>'required|image|mimes:jpg,jpeg,png|max:2048',
             'message'=>'nullable|string|max:1000',
             'is_anonymous'=>'boolean',
+            // OCR fields
+            'ocr_text'=>'nullable|string',
+            'ocr_ref_number'=>'nullable|string',
+            'ocr_amount'=>'nullable|string',
+            'ocr_date'=>'nullable|string',
+            'ocr_confidence'=>'nullable|integer|min:0|max:100',
         ]);
 
         // Store proof image
@@ -131,6 +164,19 @@ class DonationController extends Controller
         $donorId = $r->user() ? $r->user()->id : null;
         if($data['is_anonymous'] ?? false) {
             $donorId = null;
+        }
+
+        // Auto-verify logic based on OCR confidence and amount matching
+        $confidenceThreshold = 65;
+        $verificationStatus = 'pending';
+        $ocrConfidence = $data['ocr_confidence'] ?? null;
+        $ocrAmount = $data['ocr_amount'] ?? null;
+        
+        if ($ocrConfidence !== null && $ocrConfidence >= $confidenceThreshold) {
+            // Check if OCR amount matches submitted amount (within small tolerance)
+            if ($ocrAmount && abs(floatval($ocrAmount) - floatval($data['amount'])) < 0.01) {
+                $verificationStatus = 'auto_verified';
+            }
         }
 
         // Create donation record for direct charity donation
@@ -144,12 +190,20 @@ class DonationController extends Controller
             'channel_used' => $data['channel_used'],
             'reference_number' => $data['reference_number'],
             'proof_path' => $proofPath,
+            'receipt_image_path' => $proofPath, // Same as proof_path for now
             'proof_type' => 'image',
             'message' => $data['message'] ?? null,
             'is_anonymous' => $data['is_anonymous'] ?? false,
             'purpose' => 'general', // Direct charity donations are general
             'status' => 'pending',
             'donated_at' => now(),
+            // OCR fields
+            'ocr_text' => $data['ocr_text'] ?? null,
+            'ocr_ref_number' => $data['ocr_ref_number'] ?? null,
+            'ocr_amount' => $data['ocr_amount'] ?? null,
+            'ocr_date' => $data['ocr_date'] ?? null,
+            'ocr_confidence' => $ocrConfidence,
+            'verification_status' => $verificationStatus,
         ]);
 
         return response()->json([

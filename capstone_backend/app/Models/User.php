@@ -10,7 +10,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name','email','phone','address','password','profile_image','role','status','sms_notifications_enabled','sms_notification_types'];
+    protected $fillable = ['name','email','phone','address','password','profile_image','cover_image','role','status','bio','sms_notifications_enabled','sms_notification_types'];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
@@ -30,4 +30,5 @@ class User extends Authenticatable
     public function campaignComments(){ return $this->hasMany(CampaignComment::class); }
     public function reports(){ return $this->morphMany(Report::class, 'reported_entity'); }
     public function donorProfile(){ return $this->hasOne(DonorProfile::class); }
+    public function donorMilestones(){ return $this->hasMany(DonorMilestone::class, 'donor_id'); }
 }
