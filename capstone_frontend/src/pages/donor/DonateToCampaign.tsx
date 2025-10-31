@@ -540,38 +540,24 @@ export default function DonateToCampaign() {
                     {/* OCR Info Card - Clean & Simple */}
                     {ocrResult && (
                       <div className="rounded-lg border border-border/50 p-3 bg-background/50">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            {ocrResult.template && ocrResult.template !== 'unknown' && (
-                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase text-xs">
-                                🏦 {ocrResult.template}
-                              </span>
-                            )}
-                            <span className="text-muted-foreground">OCR Confidence:</span>
-                            <span
-                              className={`font-bold ${
-                                (ocrResult.confidence ?? 0) >= 85
-                                  ? "text-green-600 dark:text-green-400"
-                                  : (ocrResult.confidence ?? 0) >= 60
-                                  ? "text-yellow-600 dark:text-yellow-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {ocrResult.confidence ?? "N/A"}%
+                        <div className="flex items-center gap-2 text-xs">
+                          {ocrResult.template && ocrResult.template !== 'unknown' && (
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase text-xs">
+                              🏦 {ocrResult.template}
                             </span>
-                          </div>
-                          
-                          {/* Debug Toggle */}
-                          <details className="group inline-block">
-                            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none">
-                              🐛 Debug
-                            </summary>
-                            <div className="absolute right-0 mt-2 w-80 z-10">
-                              <pre className="whitespace-pre-wrap text-xs bg-muted border border-border rounded-md p-3 max-h-32 overflow-auto font-mono shadow-lg">
-                                {ocrResult.text || "No OCR text available"}
-                              </pre>
-                            </div>
-                          </details>
+                          )}
+                          <span className="text-muted-foreground">OCR Confidence:</span>
+                          <span
+                            className={`font-bold ${
+                              (ocrResult.confidence ?? 0) >= 85
+                                ? "text-green-600 dark:text-green-400"
+                                : (ocrResult.confidence ?? 0) >= 60
+                                ? "text-yellow-600 dark:text-yellow-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {ocrResult.confidence ?? "N/A"}%
+                          </span>
                         </div>
 
                         {/* Low Confidence Warning */}

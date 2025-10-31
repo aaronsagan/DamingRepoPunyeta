@@ -484,29 +484,29 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
         </div>
       )}
 
-      {/* File Upload */}
+      {/* File Upload - Side by Side Layout */}
       <div className="space-y-2">
         <label className="block text-sm font-medium">Upload Receipt</label>
-        <input 
-          type="file" 
-          accept="image/*,application/pdf" 
-          onChange={onFileSelected}
-          disabled={!workerReady}
-          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-file-upload-button]:mr-4 [&::file-selector-button]:mr-4"
-          style={{ color: 'transparent' }}
-        />
+        <div className="flex items-start gap-3">
+          <input 
+            type="file" 
+            accept="image/*,application/pdf" 
+            onChange={onFileSelected}
+            disabled={!workerReady}
+            className="text-sm file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ color: 'transparent', width: 'auto' }}
+          />
+          {file && (
+            <div className="flex-1 p-2.5 rounded-lg bg-muted/30 border border-border min-w-0">
+              <p className="text-xs text-muted-foreground mb-0.5">Selected:</p>
+              <p className="text-sm font-medium truncate">{file.name}</p>
+            </div>
+          )}
+        </div>
         {!workerReady && (
           <p className="text-xs text-muted-foreground">Please wait for OCR engine to initialize...</p>
         )}
       </div>
-
-      {/* File Info */}
-      {file && (
-        <div className="p-3 rounded-lg bg-muted/30 border border-border">
-          <p className="text-xs text-muted-foreground">Selected:</p>
-          <p className="text-sm font-medium truncate">{file.name}</p>
-        </div>
-      )}
 
       {/* Progress Bar */}
       {parsing && (
@@ -555,19 +555,6 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
               </p>
             </div>
           )}
-          
-          {/* Collapsible Debug Section */}
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              Show Raw OCR Text
-            </summary>
-            <pre className="mt-2 text-xs bg-muted/50 border border-border rounded-md p-3 max-h-32 overflow-auto font-mono whitespace-pre-wrap">
-              {ocrText || 'No text extracted'}
-            </pre>
-          </details>
         </div>
       )}
     </div>
