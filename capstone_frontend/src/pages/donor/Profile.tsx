@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Share2, TrendingUp, Heart, Award, DollarSign, Calendar, MapPin } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Edit, Share2, MoreVertical, MapPin, TrendingUp, Heart, Calendar, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -13,6 +18,8 @@ import { useAuth } from "@/context/AuthContext";
 export default function Profile() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("about");
+  
   const [stats, setStats] = useState({
     totalDonated: 0,
     campaignsSupported: 0,
@@ -20,306 +27,291 @@ export default function Profile() {
     likedCampaigns: 0,
   });
 
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [editingBio, setEditingBio] = useState(false);
-  const [bio, setBio] = useState("Making a difference through charitable giving and community support.");
-
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    fetchDonorData();
+    // TODO: Fetch donor stats
+    setStats({
+      totalDonated: 0,
+      campaignsSupported: 0,
+      recentDonations: 0,
+      likedCampaigns: 0,
+    });
   }, []);
 
-  const fetchDonorData = async () => {
-    try {
-      // TODO: Fetch from API
-      // For now using placeholder
-      setStats({
-        totalDonated: 0,
-        campaignsSupported: 0,
-        recentDonations: 0,
-        likedCampaigns: 0,
+  const handleShare = () => {
+    const url = `${window.location.origin}/donor/profile`;
+    if (navigator.share) {
+      navigator.share({
+        title: user?.name || 'Donor Profile',
+        text: 'Check out my donor profile',
+        url,
       });
-      setRecentActivity([]);
-    } catch (error) {
-      console.error('Error fetching donor data:', error);
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Profile link copied to clipboard!');
     }
   };
 
-  const handleSaveBio = () => {
-    // TODO: API call to save bio
-    toast.success('Bio updated successfully');
-    setEditingBio(false);
+  const formatCurrency = (amount: number) => {
+    if (!amount) return '₱0';
+    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
-  const copyProfileLink = () => {
-    const link = `${window.location.origin}/donor/profile`;
-    navigator.clipboard.writeText(link);
-    toast.success('Profile link copied to clipboard!');
-  };
+  const logoUrl = user?.profile_image ? `${API_URL}/storage/${user.profile_image}` : null;
+
+  const statItems = [
+    {
+      icon: TrendingUp,
+      label: "Total Donated",
+      value: formatCurrency(stats.totalDonated),
+      gradient: "from-emerald-500/20 via-emerald-400/10 to-transparent",
+      ring: "ring-emerald-500/30",
+      iconColor: "text-emerald-400",
+      valueColor: "text-emerald-400",
+    },
+    {
+      icon: Calendar,
+      label: "Campaigns Supported",
+      value: stats.campaignsSupported.toString(),
+      gradient: "from-indigo-500/20 via-indigo-400/10 to-transparent",
+      ring: "ring-indigo-500/30",
+      iconColor: "text-indigo-400",
+      valueColor: "text-indigo-400",
+    },
+    {
+      icon: Heart,
+      label: "Recent Donations",
+      value: stats.recentDonations.toString(),
+      gradient: "from-sky-500/20 via-sky-400/10 to-transparent",
+      ring: "ring-sky-500/30",
+      iconColor: "text-sky-400",
+      valueColor: "text-sky-400",
+    },
+    {
+      icon: FileText,
+      label: "Liked Campaigns",
+      value: stats.likedCampaigns.toString(),
+      gradient: "from-fuchsia-500/20 via-fuchsia-400/10 to-transparent",
+      ring: "ring-fuchsia-500/30",
+      iconColor: "text-fuchsia-400",
+      valueColor: "text-fuchsia-400",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Back Button - Outside Banner */}
-      <div className="bg-[#0a1628] px-6 py-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-white hover:bg-white/10 -ml-2"
-          onClick={() => navigate(-1)}
-        >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </Button>
-      </div>
+    <div className="min-h-screen bg-background pb-20 lg:pb-8">
+      {/* Profile Header - EXACT copy of charity ProfileHeader structure */}
+      <div className="relative bg-gradient-to-br from-orange-50/30 via-pink-50/20 to-blue-50/30 dark:from-orange-950/10 dark:via-pink-950/10 dark:to-blue-950/10">
+        {/* Breadcrumb / Back Button */}
+        <div className="container mx-auto px-4 lg:px-8 pt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md backdrop-blur-sm"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
 
-      {/* Cover Banner */}
-      <div className="relative h-64 bg-gradient-to-r from-red-600 via-purple-600 to-blue-600">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/20" />
-      </div>
-
-      {/* Profile Header */}
-      <div className="max-w-7xl mx-auto px-6 -mt-20 relative z-10">
-        <div className="flex flex-col md:flex-row items-start md:items-end gap-6 mb-8">
-          {/* Avatar */}
-          <Avatar className="h-32 w-32 border-4 border-background shadow-xl bg-orange-500">
-            <AvatarImage 
-              src={user?.profile_image ? `${API_URL}/storage/${user.profile_image}` : undefined}
-              alt={user?.name}
-            />
-            <AvatarFallback className="text-4xl bg-orange-500 text-white font-bold">
-              {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'D'}
-            </AvatarFallback>
-          </Avatar>
-
-          {/* Name and Info */}
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-4xl font-bold text-white">{user?.name || 'Demo Donor'}</h1>
-              <Badge className="bg-gray-700 hover:bg-gray-600 text-white border-0">
-                Donor Account
-              </Badge>
+        {/* Cover Photo with Side Margins */}
+        <div className="container mx-auto px-4 lg:px-8 pt-4 pb-16">
+          <div className="relative h-[280px] lg:h-[340px] rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-orange-100/50 via-pink-100/40 to-blue-100/50 dark:from-orange-900/20 dark:via-pink-900/20 dark:to-blue-900/20">
+            {/* Decorative background pattern */}
+            <div className="w-full h-full flex items-center justify-center relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-200/40 via-pink-200/30 to-blue-200/40 dark:from-orange-800/20 dark:via-pink-800/20 dark:to-blue-800/20" />
+              <div className="absolute inset-0 opacity-10">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="hearts" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                      <path d="M50 70 L30 50 Q20 40 30 30 T50 30 T70 30 Q80 40 70 50 Z" fill="currentColor" opacity="0.1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#hearts)"/>
+                </svg>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <MapPin className="h-4 w-4" />
-              <span>{user?.address || '123 Donor Street, Manila'}</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button 
-              onClick={() => navigate('/donor/settings')} 
-              className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Settings className="h-4 w-4" />
-              Edit Profile
-            </Button>
-            <Button 
-              onClick={copyProfileLink} 
-              variant="outline" 
-              size="icon"
-              className="border-gray-600 hover:bg-gray-800"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
+            
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent dark:from-gray-900/40" />
           </div>
         </div>
 
-        {/* Stats Cards - Donor Specific */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 mt-8">
-          <Card className="bg-[#0d2b3e] border-0 rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-400">Total Donated</p>
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-green-500">₱{stats.totalDonated.toLocaleString()}</p>
-            </CardContent>
-          </Card>
+        {/* Profile Content - Logo overlaps cover slightly */}
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="relative -mt-24 lg:-mt-28">
+            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-4 lg:gap-6 lg:pl-6">
+              {/* Logo - Slightly overlapping cover bottom */}
+              <Avatar className="h-32 w-32 lg:h-40 lg:w-40 ring-6 ring-white dark:ring-gray-900 shadow-2xl transition-transform duration-200 hover:scale-105 bg-white dark:bg-gray-800 lg:ml-8">
+                <AvatarImage src={logoUrl || undefined} alt={user?.name} />
+                <AvatarFallback className="text-4xl lg:text-5xl font-bold bg-gradient-to-br from-[#F2A024] to-orange-500 text-white">
+                  {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'DD'}
+                </AvatarFallback>
+              </Avatar>
 
-          <Card className="bg-[#1e2347] border-0 rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-400">Campaigns Supported</p>
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Award className="h-5 w-5 text-blue-500" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-blue-500">{stats.campaignsSupported}</p>
-            </CardContent>
-          </Card>
+              {/* Info & Actions */}
+              <div className="flex-1 pb-2 w-full">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  {/* Left: Name & Info */}
+                  <div className="flex-1 pt-0">
+                    <h1 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-tight mb-1">
+                      {user?.name || 'Demo Donor'}
+                    </h1>
+                    
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge className="bg-gray-700 hover:bg-gray-600 text-white border-0 px-3 py-1.5 text-sm font-medium">
+                        Donor Account
+                      </Badge>
+                    </div>
+                    
+                    {user?.address && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <span>{user.address}</span>
+                      </div>
+                    )}
+                  </div>
 
-          <Card className="bg-[#0d2535] border-0 rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-400">Recent Donations</p>
-                <div className="p-2 bg-cyan-500/20 rounded-lg">
-                  <Calendar className="h-5 w-5 text-cyan-500" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-cyan-500">{stats.recentDonations}</p>
-            </CardContent>
-          </Card>
+                  {/* Right: Action Buttons */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      onClick={() => navigate('/donor/settings')}
+                      className="bg-[#F2A024] hover:bg-[#E89015] text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 focus:ring-2 focus:ring-offset-2 focus:ring-[#F2A024]"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      onClick={handleShare}
+                      className="shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
 
-          <Card className="bg-[#2b1b47] border-0 rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-400">Liked Campaigns</p>
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Heart className="h-5 w-5 text-purple-500" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          className="shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate('/donor/settings')}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleShare}>
+                          <Share2 className="h-4 w-4 mr-2" />
+                          Share Profile
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
-              <p className="text-3xl font-bold text-purple-500">{stats.likedCampaigns}</p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 lg:px-8 pt-6">
+        {/* Stats - EXACT copy of ProfileStats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 mb-8">
+          {statItems.map((item, index) => (
+            <Card
+              key={index}
+              className={`relative overflow-hidden bg-background/40 border-border/40 hover:shadow-lg hover:-translate-y-1 transition-all duration-150 cursor-pointer rounded-2xl ring-1 ${item.ring} hover:ring-2 active:scale-[0.98]`}
+            >
+              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${item.gradient}`} />
+              <CardContent className="relative p-5 h-24 lg:h-28 flex items-center justify-between">
+                <div>
+                  <p className={`text-2xl lg:text-3xl font-extrabold ${item.valueColor}`}>{item.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
+                </div>
+                <div className="shrink-0">
+                  <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+                    <item.icon className={`h-5 w-5 lg:h-6 lg:w-6 ${item.iconColor}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Tabs Section */}
-        <Tabs defaultValue="about" className="mb-8">
-          <TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="bg-muted/50">
             <TabsTrigger value="about">About</TabsTrigger>
             <TabsTrigger value="activity">Recent Activity</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="about" className="space-y-6 mt-6">
+          <TabsContent value="about" className="mt-6">
             <div className="grid md:grid-cols-2 gap-6">
-              {/* About / Mission */}
               <Card>
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">About</h2>
-                    {!editingBio ? (
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => setEditingBio(true)}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setEditingBio(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={handleSaveBio}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {editingBio ? (
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      className="w-full p-3 border rounded-md bg-background min-h-[100px] resize-none"
-                      placeholder="Tell others about yourself..."
-                    />
-                  ) : (
-                    <p className="text-muted-foreground">
-                      {bio}
-                    </p>
-                  )}
+                  <h3 className="text-lg font-semibold mb-3">About</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Making a difference through charitable giving and community support.
+                  </p>
                 </CardContent>
               </Card>
 
-              {/* Contact Information */}
               <Card>
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-xl font-bold">Contact Information</h2>
-                      <p className="text-sm text-muted-foreground">Get in touch</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                        <Heart className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Email address</p>
-                        <p className="font-medium truncate">{user?.email || 'donor@example.com'}</p>
-                      </div>
+                  <h3 className="text-lg font-semibold mb-3">Contact Information</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{user?.email}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Member Information */}
-            <Card>
+            <Card className="mt-6">
               <CardContent className="p-6">
-                <h2 className="text-xl font-bold mb-4">Member Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <h3 className="text-lg font-semibold mb-4">Member Information</h3>
+                <div className="grid md:grid-cols-3 gap-6">
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Member Since</p>
-                    <Badge variant="outline" className="text-sm">
+                    <Badge variant="outline">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'October 2025'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Account Type</p>
-                    <Badge variant="outline" className="text-sm">Donor</Badge>
+                    <Badge variant="outline">Donor</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Status</p>
-                    <Badge className="bg-green-600 text-sm">Active</Badge>
+                    <Badge className="bg-green-600">Active</Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="activity" className="space-y-6 mt-6">
+          <TabsContent value="activity" className="mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your latest donations and interactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {recentActivity.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground">No recent activity yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Start supporting campaigns to see your activity here
-                    </p>
-                    <Button 
-                      className="mt-4"
-                      onClick={() => navigate('/donor/campaigns')}
-                    >
-                      Explore Campaigns
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-start gap-4 p-4 rounded-lg border">
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback>C</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">{activity.title}</p>
-                          <p className="text-sm text-muted-foreground">{activity.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{activity.date}</p>
-                        </div>
-                        <Badge variant="outline">{activity.amount}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <CardContent className="p-12 text-center">
+                <Calendar className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No activity yet</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Start supporting campaigns to see your activity here
+                </p>
+                <Button onClick={() => navigate('/donor/campaigns')}>
+                  Explore Campaigns
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
