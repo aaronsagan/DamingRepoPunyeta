@@ -210,7 +210,8 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
         refNumber: parsed.refNumber,
         amount: parsed.amount,
         date: parsed.date,
-        confidence: avgConf
+        confidence: avgConf,
+        template: parsed.template
       });
 
       // revoke object URL
@@ -521,95 +522,25 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
         </div>
       )}
 
-      {/* Editable Extracted Fields */}
-      {(parsedRef || parsedAmount || parsedDate) && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-primary">📝 Extracted Values {fieldsLocked ? '🔒' : '(Editable)'}</p>
-            {fieldsLocked && (
-              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                Locked (High Confidence)
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Reference Number</label>
-              <input 
-                value={parsedRef} 
-                onChange={(e)=>setParsedRef(e.target.value)} 
-                placeholder="Not detected"
-                disabled={fieldsLocked}
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Amount</label>
-              <input 
-                value={parsedAmount} 
-                onChange={(e)=>setParsedAmount(e.target.value)} 
-                placeholder="Not detected"
-                disabled={fieldsLocked}
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date</label>
-              <input 
-                value={parsedDate} 
-                onChange={(e)=>setParsedDate(e.target.value)} 
-                placeholder="Not detected"
-                disabled={fieldsLocked}
-                className="w-full h-9 px-3 rounded-md bg-background border border-input text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-            </div>
-          </div>
-          
-          {/* Lock Explanation */}
-          {fieldsLocked && (
+      {/* OCR Status - Compact Display */}
+      {confidence !== null && (
+        <div className="space-y-2">
+          {/* Success indicator when high confidence */}
+          {confidence >= 70 && (parsedRef || parsedAmount || parsedDate) && (
             <div className="flex items-start gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
-              <span className="text-green-600 dark:text-green-400 text-xs">🛡️</span>
+              <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
               <p className="text-xs text-green-600 dark:text-green-400">
-                Fields are locked because OCR confidence is high. This prevents accidental changes and ensures data integrity.
+                OCR extraction successful ({confidence}%). Form fields have been auto-populated.
               </p>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Confidence & Raw Text */}
-      {confidence !== null && (
-        <div className="space-y-2 pt-2 border-t border-border">
-          {/* Receipt Type Badge */}
-          {receiptType !== 'unknown' && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Detected:</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary uppercase">
-                {receiptType}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">OCR Confidence:</p>
-            <p className={`text-xs font-bold ${
-              confidence >= 85 ? 'text-green-600 dark:text-green-400' :
-              confidence >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
-              'text-red-600 dark:text-red-400'
-            }`}>
-              {confidence}%
-            </p>
-          </div>
-
-          {/* Confidence Warnings */}
+          {/* Warnings for low confidence or missing values */}
           {confidence < 60 && (
             <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
-              <span className="text-red-600 dark:text-red-400 text-xs">❌</span>
+              <span className="text-red-600 dark:text-red-400 text-xs">⚠️</span>
               <p className="text-xs text-red-600 dark:text-red-400">
-                <strong>Critical:</strong> OCR confidence is very low ({confidence}%). Please upload a clearer photo or enter values manually.
+                <strong>Low confidence ({confidence}%):</strong> Please verify or manually enter the values.
               </p>
             </div>
           )}
@@ -618,7 +549,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
             <div className="flex items-start gap-2 p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
               <span className="text-yellow-600 dark:text-yellow-400 text-xs">⚠️</span>
               <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                OCR confidence is moderate ({confidence}%). Please verify extracted values before submitting.
+                Moderate confidence ({confidence}%). Please verify extracted values.
               </p>
             </div>
           )}
@@ -627,7 +558,7 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
             <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
               <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
               <p className="text-xs text-orange-600 dark:text-orange-400">
-                <strong>Amount not detected.</strong> Please enter it manually before submitting.
+                <strong>Amount not detected.</strong> Please enter it manually.
               </p>
             </div>
           )}
@@ -636,12 +567,12 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
             <div className="flex items-start gap-2 p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
               <span className="text-orange-600 dark:text-orange-400 text-xs">⚠️</span>
               <p className="text-xs text-orange-600 dark:text-orange-400">
-                <strong>Reference number not detected.</strong> Please enter it manually before submitting.
+                <strong>Reference number not detected.</strong> Please enter it manually.
               </p>
             </div>
           )}
           
-          {/* Collapsible Raw Text */}
+          {/* Collapsible Debug Section */}
           <details className="group">
             <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
               <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">

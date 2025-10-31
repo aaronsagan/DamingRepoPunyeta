@@ -537,13 +537,17 @@ export default function DonateToCampaign() {
                       }}
                     />
                     
-                    {/* OCR Results Display - Enhanced */}
+                    {/* OCR Info Card - Clean & Simple */}
                     {ocrResult && (
-                      <div className="rounded-xl bg-muted/30 border border-primary/20 p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-primary">📄 Auto-Extracted Details</p>
-                          <div className="text-xs">
-                            <span className="text-muted-foreground">Confidence: </span>
+                      <div className="rounded-lg border p-3 space-y-2 bg-background/50">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            {ocrResult.template && ocrResult.template !== 'unknown' && (
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase">
+                                🏦 {ocrResult.template}
+                              </span>
+                            )}
+                            <span className="text-muted-foreground">OCR Confidence:</span>
                             <span
                               className={`font-bold ${
                                 (ocrResult.confidence ?? 0) >= 85
@@ -558,53 +562,20 @@ export default function DonateToCampaign() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                          {ocrResult.refNumber && (
-                            <div className="p-2 rounded-md bg-background/50">
-                              <span className="text-muted-foreground block mb-1">Reference #</span>
-                              <span className="font-medium text-foreground">{ocrResult.refNumber}</span>
-                            </div>
-                          )}
-                          {ocrResult.amount && (
-                            <div className="p-2 rounded-md bg-background/50">
-                              <span className="text-muted-foreground block mb-1">Amount</span>
-                              <span className="font-medium text-foreground">₱{ocrResult.amount}</span>
-                            </div>
-                          )}
-                          {ocrResult.date && (
-                            <div className="p-2 rounded-md bg-background/50">
-                              <span className="text-muted-foreground block mb-1">Date</span>
-                              <span className="font-medium text-foreground">{ocrResult.date}</span>
-                            </div>
-                          )}
-                        </div>
+                        {/* Status Messages */}
+                        {(ocrResult.confidence ?? 0) < 60 && (
+                          <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
+                            <span>⚠️</span>
+                            <p>Low confidence detected. Please verify or re-upload a clearer receipt.</p>
+                          </div>
+                        )}
 
-                        {/* Confidence Feedback */}
-                        <div className="pt-2 border-t border-border/50">
-                          {(ocrResult.confidence ?? 0) >= 85 && (
-                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                              <CheckCircle className="h-3 w-3" />
-                              Looks accurate — form fields auto-populated
-                            </p>
-                          )}
-                          {(ocrResult.confidence ?? 0) >= 60 && (ocrResult.confidence ?? 0) < 85 && (
-                            <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                              ⚠️ Please double-check the extracted values above
-                            </p>
-                          )}
-                          {(ocrResult.confidence ?? 0) < 60 && (ocrResult.confidence ?? 0) > 0 && (
-                            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                              ❌ Low accuracy — consider re-uploading a clearer photo
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Collapsible Raw OCR Text */}
-                        <details className="pt-2 border-t border-border/50">
+                        {/* Collapsible Debug Section */}
+                        <details className="pt-2 border-t border-border/30">
                           <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                            Show Raw OCR Text (Debug)
+                            🐛 Show Raw OCR Text (Debug)
                           </summary>
-                          <pre className="mt-2 whitespace-pre-wrap text-xs bg-background border border-border rounded-md p-3 max-h-32 overflow-auto font-mono">
+                          <pre className="mt-2 whitespace-pre-wrap text-xs bg-muted border border-border rounded-md p-2 max-h-32 overflow-auto font-mono">
                             {ocrResult.text || "No OCR text available"}
                           </pre>
                         </details>
