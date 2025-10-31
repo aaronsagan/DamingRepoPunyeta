@@ -487,17 +487,17 @@ export default function ReceiptUploader({ onFileChange, onOCRExtract, initialFil
       {/* File Upload - Side by Side Layout */}
       <div className="space-y-2">
         <label className="block text-sm font-medium">Upload Receipt</label>
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-2">
           <input 
             type="file" 
             accept="image/*,application/pdf" 
             onChange={onFileSelected}
             disabled={!workerReady}
-            className="text-sm file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ color: 'transparent', width: 'auto' }}
+            className="text-sm file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            style={{ color: 'transparent' }}
           />
           {file && (
-            <div className="flex-1 p-2.5 rounded-lg bg-muted/30 border border-border min-w-0">
+            <div className="flex-1 px-3 py-2 rounded-lg bg-muted/30 border border-border min-w-0 max-w-md">
               <p className="text-xs text-muted-foreground mb-0.5">Selected:</p>
               <p className="text-sm font-medium truncate">{file.name}</p>
             </div>
