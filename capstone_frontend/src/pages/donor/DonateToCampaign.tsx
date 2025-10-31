@@ -63,7 +63,6 @@ export default function DonateToCampaign() {
   const [proofImage, setProofImage] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<any>(null);
-  const [useOCR, setUseOCR] = useState(true);
 
   useEffect(() => {
     fetchCampaignDetails();
@@ -430,7 +429,7 @@ export default function DonateToCampaign() {
                       <div className="space-y-2">
                         <Label htmlFor="reference_number" className="text-sm font-medium flex items-center gap-1">
                           Reference Number <span className="text-destructive">*</span>
-                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
                             <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
                           )}
                         </Label>
@@ -440,10 +439,10 @@ export default function DonateToCampaign() {
                           onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
                           placeholder="OCR auto-fills"
                           className="h-11"
-                          disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.refNumber}
+                          disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.refNumber}
                           required
                         />
-                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
                           <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
                         )}
                       </div>
@@ -452,7 +451,7 @@ export default function DonateToCampaign() {
                       <div className="space-y-2">
                         <Label htmlFor="amount" className="text-sm font-medium flex items-center gap-1">
                           Amount <span className="text-destructive">*</span>
-                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
                             <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
                           )}
                         </Label>
@@ -467,11 +466,11 @@ export default function DonateToCampaign() {
                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                             placeholder="OCR auto-fills"
                             className="h-11 pl-7"
-                            disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.amount}
+                            disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.amount}
                             required
                           />
                         </div>
-                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
                           <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
                         )}
                       </div>
@@ -480,7 +479,7 @@ export default function DonateToCampaign() {
                       <div className="space-y-2">
                         <Label htmlFor="donation_date" className="text-sm font-medium flex items-center gap-1">
                           Date <span className="text-destructive">*</span>
-                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                          {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
                             <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
                           )}
                         </Label>
@@ -490,17 +489,17 @@ export default function DonateToCampaign() {
                           onChange={(e) => setFormData({ ...formData, donation_date: e.target.value })}
                           placeholder="OCR auto-fills"
                           className="h-11"
-                          disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.date}
+                          disabled={ocrResult && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.date}
                           required
                         />
-                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                        {ocrResult && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
                           <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
                         )}
                       </div>
                     </div>
 
                     {/* Info Banner */}
-                    {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && (
+                    {ocrResult && (ocrResult.confidence ?? 0) >= 70 && (
                       <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 flex items-start gap-2">
                         <span className="text-green-600 dark:text-green-400 text-sm">🛡️</span>
                         <p className="text-xs text-green-600 dark:text-green-400">
@@ -512,94 +511,34 @@ export default function DonateToCampaign() {
 
                   {/* Proof Upload Section */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <div className="h-5 w-1 bg-primary rounded-full" />
-                        Upload Proof of Payment
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="use_ocr"
-                          checked={useOCR}
-                          onCheckedChange={setUseOCR}
-                        />
-                        <Label htmlFor="use_ocr" className="text-xs cursor-pointer">
-                          Enable OCR Auto-Extract
-                        </Label>
-                      </div>
-                    </div>
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="h-5 w-1 bg-primary rounded-full" />
+                      Upload Proof of Payment
+                    </h3>
 
-                    {useOCR ? (
-                      <ReceiptUploader
-                        onFileChange={(file) => {
-                          setProofImage(file);
-                          if (file) {
-                            setProofPreview(URL.createObjectURL(file));
-                          } else {
-                            setProofPreview(null);
-                          }
-                        }}
-                        onOCRExtract={(result) => {
-                          setOcrResult(result);
-                          // Auto-populate form fields from OCR (overwrite existing values)
-                          setFormData(prev => ({
-                            ...prev,
-                            reference_number: result.refNumber || prev.reference_number,
-                            amount: result.amount || prev.amount,
-                            donation_date: result.date || prev.donation_date,
-                          }));
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        {proofPreview ? (
-                          <div className="relative">
-                            <img
-                              src={proofPreview}
-                              alt="Proof preview"
-                              className="w-full h-64 object-cover rounded-xl border-2 border-primary/20"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProofImage(null);
-                                setProofPreview(null);
-                              }}
-                              className="absolute top-3 right-3 p-2 bg-destructive text-white rounded-full hover:bg-destructive/90 shadow-lg"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs">
-                              ✓ Image uploaded
-                            </div>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
-                            <div className="flex flex-col items-center justify-center p-6 text-center">
-                              <div className="p-3 rounded-full bg-primary/10 mb-3">
-                                <Upload className="h-8 w-8 text-primary" />
-                              </div>
-                              <p className="text-sm font-medium mb-1">
-                                Click to upload receipt or screenshot <span className="text-destructive">*</span>
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Supported formats: JPG, PNG (Max 2MB)
-                              </p>
-                            </div>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageChange}
-                              className="hidden"
-                              required
-                            />
-                          </label>
-                        )}
-                      </div>
-                    )}
+                    <ReceiptUploader
+                      onFileChange={(file) => {
+                        setProofImage(file);
+                        if (file) {
+                          setProofPreview(URL.createObjectURL(file));
+                        } else {
+                          setProofPreview(null);
+                        }
+                      }}
+                      onOCRExtract={(result) => {
+                        setOcrResult(result);
+                        // Auto-populate form fields from OCR (overwrite existing values)
+                        setFormData(prev => ({
+                          ...prev,
+                          reference_number: result.refNumber || prev.reference_number,
+                          amount: result.amount || prev.amount,
+                          donation_date: result.date || prev.donation_date,
+                        }));
+                      }}
+                    />
                     
                     {/* OCR Results Display - Enhanced */}
-                    {ocrResult && useOCR && (
+                    {ocrResult && (
                       <div className="rounded-xl bg-muted/30 border border-primary/20 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold text-primary">📄 Auto-Extracted Details</p>
