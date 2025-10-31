@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
-  AuthController, CharityController, CampaignController, CampaignUpdateController, DonationController, FundUsageController, CharityPostController, TransparencyController, CharityFollowController, NotificationController, ReportController, CampaignCommentController, CategoryController, VolunteerController, LeaderboardController, DocumentExpiryController, LocationController, DonorRegistrationController, AnalyticsController
+  AuthController, CharityController, CampaignController, CampaignUpdateController, DonationController, FundUsageController, CharityPostController, TransparencyController, CharityFollowController, NotificationController, ReportController, CampaignCommentController, CategoryController, VolunteerController, LeaderboardController, DocumentExpiryController, LocationController, DonorRegistrationController, AnalyticsController, CampaignBrowseController
 };
 use App\Models\Charity;
 use App\Models\Campaign;
@@ -11,6 +11,15 @@ use App\Http\Controllers\Admin\{VerificationController, AdminActionLogController
 
 // Health
 Route::get('/ping', fn () => ['ok' => true, 'time' => now()->toDateTimeString()]);
+
+// Test route - simple closure
+Route::get('/test-campaigns-route', function() {
+    return response()->json([
+        'message' => 'Test route works!',
+        'campaigns_count' => \App\Models\Campaign::count(),
+        'status' => 200
+    ]);
+});
 
 // TEST ROUTE - Check campaign data
 Route::get('/test-campaign/{id}', function ($id) {
@@ -73,6 +82,11 @@ Route::get('/charities', [CharityController::class,'index']);
 Route::get('/charities/{charity}', [CharityController::class,'show']);
 Route::get('/charities/{charity}/channels', [CharityController::class,'channels']);
 Route::get('/charities/{charity}/campaigns', [CampaignController::class,'index']);
+
+// Public Campaign Browsing & Filtering - MUST come BEFORE {campaign} wildcard route
+Route::get('/campaigns/filter-options', [CampaignBrowseController::class, 'filterOptions']);
+Route::get('/campaigns/filter', [CampaignBrowseController::class, 'filter']);
+
 Route::get('/campaigns/{campaign}', [CampaignController::class,'show']);
 Route::get('/campaigns/{campaign}/fund-usage', [FundUsageController::class,'publicIndex']);
 Route::get('/campaigns/{campaign}/updates', [CampaignUpdateController::class,'index']);
@@ -326,9 +340,22 @@ Route::middleware(['auth:sanctum'])->group(function(){
   // Donor-specific analytics (protected)
   Route::get('/analytics/donors/{donorId}/summary', [AnalyticsController::class,'donorSummary']);
   
-  // Campaign filtering (Phase 7)
-  Route::get('/campaigns/filter', [AnalyticsController::class,'filterCampaigns']);
-  Route::get('/campaigns/filter-options', [AnalyticsController::class,'filterOptions']);
+  // Donor-facing site-wide campaign analytics (public aggregated data)
+  Route::get('/donor-analytics/summary', [\App\Http\Controllers\DonorAnalyticsController::class, 'summary']);
+  Route::post('/donor-analytics/query', [\App\Http\Controllers\DonorAnalyticsController::class, 'query']);
+  Route::get('/donor-analytics/campaign/{id}', [\App\Http\Controllers\DonorAnalyticsController::class, 'campaignDetails']);
+  Route::get('/donor-analytics/donor/{id}/overview', [\App\Http\Controllers\DonorAnalyticsController::class, 'donorOverview']);
+});
+
+// Donor Profile Routes (Public for viewing, auth required for update)
+Route::get('/donors/{id}', [\App\Http\Controllers\Api\DonorProfileController::class, 'show']);
+Route::get('/donors/{id}/activity', [\App\Http\Controllers\Api\DonorProfileController::class, 'activity']);
+Route::get('/donors/{id}/milestones', [\App\Http\Controllers\Api\DonorProfileController::class, 'milestones']);
+Route::get('/donors/{id}/badges', [\App\Http\Controllers\Api\DonorProfileController::class, 'badges']);
+
+// Protected donor profile update
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/donors/{id}/profile', [\App\Http\Controllers\Api\DonorProfileController::class, 'update']);
 });
 
 // routes/api.php

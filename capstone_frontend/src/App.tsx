@@ -41,17 +41,18 @@ import DonateToCampaign from "./pages/donor/DonateToCampaign";
 import DonationHistory from "./pages/donor/DonationHistory";
 import FundTransparency from "./pages/donor/FundTransparency";
 import DonorProfile from "./pages/donor/DonorProfile";
-import DonorProfilePage from "./pages/donor/Profile";
+import DonorProfilePage from "./pages/donor/DonorProfilePage";
 import EditProfile from "./pages/donor/EditProfile";
 import AccountSettings from "./pages/donor/AccountSettings";
 import HelpCenter from "./pages/donor/HelpCenter";
 import BrowseCharities from "./pages/donor/BrowseCharities";
-import BrowseCampaignsFiltered from "./pages/donor/BrowseCampaignsFiltered";
+import BrowseCampaigns from "./pages/donor/BrowseCampaigns";
 import Notifications from "./pages/donor/Notifications";
 import DonorCharityProfile from "./pages/donor/CharityProfile";
 import DonorReports from "./pages/donor/Reports";
 import Leaderboard from "./pages/donor/Leaderboard";
 import DonorAnalytics from "./pages/donor/Analytics";
+import DonorAnalyticsPage from "./pages/analytics/DonorAnalyticsPage";
 
 // Charity Components
 import { CharityLayout } from "./components/charity/CharityLayout";
@@ -151,10 +152,11 @@ const App = () => (
               <Route path="settings" element={<AccountSettings />} />
               <Route path="charities" element={<BrowseCharities />} />
               <Route path="charities/:id" element={<DonorCharityProfile />} />
-              <Route path="campaigns/browse" element={<BrowseCampaignsFiltered />} />
+              <Route path="campaigns/browse" element={<BrowseCampaigns />} />
               <Route path="reports" element={<DonorReports />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="analytics" element={<DonorAnalytics />} />
+              <Route path="campaign-analytics" element={<DonorAnalyticsPage />} />
               <Route path="help" element={<HelpCenter />} />
               <Route path="notifications" element={<Notifications />} />
             </Route>

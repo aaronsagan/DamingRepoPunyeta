@@ -27,4 +27,28 @@ class Donation extends Model
     public function campaign(){ return $this->belongsTo(Campaign::class); }
     public function parentDonation(){ return $this->belongsTo(Donation::class, 'parent_donation_id'); }
     public function recurringDonations(){ return $this->hasMany(Donation::class, 'parent_donation_id'); }
+
+    /**
+     * Scope to get donations for a specific donor
+     */
+    public function scopeForDonor($query, int $donorId)
+    {
+        return $query->where('donor_id', $donorId);
+    }
+
+    /**
+     * Scope to get verified donations (auto or manual)
+     */
+    public function scopeVerified($query)
+    {
+        return $query->whereIn('verification_status', ['auto_verified', 'manual_verified']);
+    }
+
+    /**
+     * Check if donation is verified
+     */
+    public function isVerified(): bool
+    {
+        return in_array($this->verification_status, ['auto_verified', 'manual_verified']);
+    }
 }
