@@ -59,103 +59,122 @@ export default function Profile() {
   };
 
   return (
-    <div>
-      {/* Cover Banner */}
-      <div className="relative h-64 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+    <div className="min-h-screen bg-background">
+      {/* Back Button - Outside Banner */}
+      <div className="bg-[#0a1628] px-6 py-4">
         <Button 
           variant="ghost" 
           size="sm" 
-          className="absolute top-4 left-4 text-white hover:bg-white/20"
+          className="text-white hover:bg-white/10 -ml-2"
           onClick={() => navigate(-1)}
         >
-          ← Back
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
         </Button>
       </div>
 
+      {/* Cover Banner */}
+      <div className="relative h-64 bg-gradient-to-r from-red-600 via-purple-600 to-blue-600">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/20" />
+      </div>
+
       {/* Profile Header */}
-      <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-10">
+      <div className="max-w-7xl mx-auto px-6 -mt-20 relative z-10">
         <div className="flex flex-col md:flex-row items-start md:items-end gap-6 mb-8">
           {/* Avatar */}
-          <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+          <Avatar className="h-32 w-32 border-4 border-background shadow-xl bg-orange-500">
             <AvatarImage 
               src={user?.profile_image ? `${API_URL}/storage/${user.profile_image}` : undefined}
               alt={user?.name}
             />
-            <AvatarFallback className="text-4xl bg-primary text-primary-foreground font-bold">
-              {user?.name?.charAt(0) || 'D'}
+            <AvatarFallback className="text-4xl bg-orange-500 text-white font-bold">
+              {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'D'}
             </AvatarFallback>
           </Avatar>
 
           {/* Name and Info */}
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-4xl font-bold">{user?.name || 'Demo Donor'}</h1>
-              <Badge className="bg-green-600 hover:bg-green-700">
-                <Award className="h-3 w-3 mr-1" />
-                Verified
-              </Badge>
-              <Badge variant="outline" className="text-xs">
+              <h1 className="text-4xl font-bold text-white">{user?.name || 'Demo Donor'}</h1>
+              <Badge className="bg-gray-700 hover:bg-gray-600 text-white border-0">
                 Donor Account
               </Badge>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-gray-300">
               <MapPin className="h-4 w-4" />
-              <span>{user?.address || 'Philippines'}</span>
+              <span>{user?.address || '123 Donor Street, Manila'}</span>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button onClick={() => navigate('/donor/settings')} className="gap-2">
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => navigate('/donor/settings')} 
+              className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+            >
               <Settings className="h-4 w-4" />
               Edit Profile
             </Button>
-            <Button onClick={copyProfileLink} variant="outline" size="icon">
+            <Button 
+              onClick={copyProfileLink} 
+              variant="outline" 
+              size="icon"
+              className="border-gray-600 hover:bg-gray-800"
+            >
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
         {/* Stats Cards - Donor Specific */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-t-4 border-t-green-500">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 mt-8">
+          <Card className="bg-[#0d2b3e] border-0 rounded-2xl">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Total Donated</p>
-                <DollarSign className="h-5 w-5 text-green-600" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-gray-400">Total Donated</p>
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-green-500" />
+                </div>
               </div>
-              <p className="text-3xl font-bold text-green-600">₱{stats.totalDonated.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-green-500">₱{stats.totalDonated.toLocaleString()}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-blue-500">
+          <Card className="bg-[#1e2347] border-0 rounded-2xl">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Campaigns Supported</p>
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-gray-400">Campaigns Supported</p>
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Award className="h-5 w-5 text-blue-500" />
+                </div>
               </div>
-              <p className="text-3xl font-bold text-blue-600">{stats.campaignsSupported}</p>
+              <p className="text-3xl font-bold text-blue-500">{stats.campaignsSupported}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-purple-500">
+          <Card className="bg-[#0d2535] border-0 rounded-2xl">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Recent Donations</p>
-                <Calendar className="h-5 w-5 text-purple-600" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-gray-400">Recent Donations</p>
+                <div className="p-2 bg-cyan-500/20 rounded-lg">
+                  <Calendar className="h-5 w-5 text-cyan-500" />
+                </div>
               </div>
-              <p className="text-3xl font-bold text-purple-600">{stats.recentDonations}</p>
+              <p className="text-3xl font-bold text-cyan-500">{stats.recentDonations}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-pink-500">
+          <Card className="bg-[#2b1b47] border-0 rounded-2xl">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Liked Campaigns</p>
-                <Heart className="h-5 w-5 text-pink-600" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-gray-400">Liked Campaigns</p>
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Heart className="h-5 w-5 text-purple-500" />
+                </div>
               </div>
-              <p className="text-3xl font-bold text-pink-600">{stats.likedCampaigns}</p>
+              <p className="text-3xl font-bold text-purple-500">{stats.likedCampaigns}</p>
             </CardContent>
           </Card>
         </div>
