@@ -55,6 +55,7 @@ export default function DonateToCampaign() {
     amount: "",
     channel_used: "",
     reference_number: "",
+    donation_date: "",
     message: "",
     is_anonymous: false,
   });
@@ -395,11 +396,65 @@ export default function DonateToCampaign() {
                       Donation Details
                     </h3>
 
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Amount */}
+                    {/* Payment Channel */}
+                    <div className="space-y-2">
+                      <Label htmlFor="channel_used" className="text-sm font-medium">
+                        Payment Channel <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.channel_used}
+                        onValueChange={(value) => setFormData({ ...formData, channel_used: value })}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {channels.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground text-center">
+                              No channels available
+                            </div>
+                          ) : (
+                            channels.map((channel) => (
+                              <SelectItem key={channel.id} value={channel.label}>
+                                {channel.label} ({channel.type})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">💡 Helps improve OCR accuracy</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {/* Reference Number - OCR Locked */}
                       <div className="space-y-2">
-                        <Label htmlFor="amount" className="text-sm font-medium">
-                          Amount Donated <span className="text-destructive">*</span>
+                        <Label htmlFor="reference_number" className="text-sm font-medium flex items-center gap-1">
+                          Reference Number <span className="text-destructive">*</span>
+                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
+                        </Label>
+                        <Input
+                          id="reference_number"
+                          value={formData.reference_number}
+                          onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                          placeholder="OCR auto-fills"
+                          className="h-11"
+                          disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.refNumber}
+                          required
+                        />
+                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.refNumber && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
+                      </div>
+
+                      {/* Amount - OCR Locked */}
+                      <div className="space-y-2">
+                        <Label htmlFor="amount" className="text-sm font-medium flex items-center gap-1">
+                          Amount <span className="text-destructive">*</span>
+                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
                         </Label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₱</span>
@@ -410,58 +465,49 @@ export default function DonateToCampaign() {
                             step="0.01"
                             value={formData.amount}
                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                            placeholder="0.00"
+                            placeholder="OCR auto-fills"
                             className="h-11 pl-7"
+                            disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.amount}
                             required
                           />
                         </div>
+                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.amount && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
                       </div>
 
-                      {/* Channel Used */}
+                      {/* Date - OCR Locked */}
                       <div className="space-y-2">
-                        <Label htmlFor="channel_used" className="text-sm font-medium">
-                          Payment Channel <span className="text-destructive">*</span>
+                        <Label htmlFor="donation_date" className="text-sm font-medium flex items-center gap-1">
+                          Date <span className="text-destructive">*</span>
+                          {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                            <span className="text-xs text-green-600 dark:text-green-400">🔒</span>
+                          )}
                         </Label>
-                        <Select
-                          value={formData.channel_used}
-                          onValueChange={(value) => setFormData({ ...formData, channel_used: value })}
-                        >
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="Select payment method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {channels.length === 0 ? (
-                              <div className="p-2 text-sm text-muted-foreground text-center">
-                                No channels available
-                              </div>
-                            ) : (
-                              channels.map((channel) => (
-                                <SelectItem key={channel.id} value={channel.label}>
-                                  {channel.label} ({channel.type})
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          id="donation_date"
+                          value={formData.donation_date}
+                          onChange={(e) => setFormData({ ...formData, donation_date: e.target.value })}
+                          placeholder="OCR auto-fills"
+                          className="h-11"
+                          disabled={ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && !!ocrResult.date}
+                          required
+                        />
+                        {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && ocrResult.date && (
+                          <p className="text-xs text-green-600 dark:text-green-400">✓ Verified by OCR</p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Reference Number */}
-                    <div className="space-y-2">
-                      <Label htmlFor="reference_number" className="text-sm font-medium">
-                        Reference Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="reference_number"
-                        value={formData.reference_number}
-                        onChange={(e) =>
-                          setFormData({ ...formData, reference_number: e.target.value })}
-                        placeholder="Transaction/Reference number"
-                        className="h-11"
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Enter the transaction ID from your payment</p>
-                    </div>
+                    {/* Info Banner */}
+                    {ocrResult && useOCR && (ocrResult.confidence ?? 0) >= 70 && (
+                      <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 flex items-start gap-2">
+                        <span className="text-green-600 dark:text-green-400 text-sm">🛡️</span>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          <strong>High confidence extraction:</strong> Fields are locked to ensure data integrity. OCR values will be used for verification.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Proof Upload Section */}
@@ -495,13 +541,13 @@ export default function DonateToCampaign() {
                         }}
                         onOCRExtract={(result) => {
                           setOcrResult(result);
-                          // Auto-populate form fields if OCR extracted them
-                          if (result.refNumber && !formData.reference_number) {
-                            setFormData({ ...formData, reference_number: result.refNumber });
-                          }
-                          if (result.amount && !formData.amount) {
-                            setFormData({ ...formData, amount: result.amount });
-                          }
+                          // Auto-populate form fields from OCR (overwrite existing values)
+                          setFormData(prev => ({
+                            ...prev,
+                            reference_number: result.refNumber || prev.reference_number,
+                            amount: result.amount || prev.amount,
+                            donation_date: result.date || prev.donation_date,
+                          }));
                         }}
                       />
                     ) : (
